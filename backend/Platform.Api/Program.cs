@@ -1,3 +1,4 @@
+using Platform.Laboratories.Infrastructure.Composition;
 using Platform.Access.Contracts;
 using Platform.Access.Composition;
 using Platform.Access.Domain.Enums;
@@ -5,6 +6,8 @@ using Platform.Access.Domain.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAccessControl();
+builder.Services.AddLaboratoriesPersistence(
+    builder.Configuration.GetConnectionString("Laboratories"));
 
 var app = builder.Build();
 

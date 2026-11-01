@@ -1,10 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UserSecretsId>f6b9b17f-0e2f-48c5-a163-83ccd719764f</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Platform.Access\Platform.Access.csproj" />
+    <ProjectReference Include="..\Platform.Laboratories.Domain\Platform.Laboratories.Domain.csproj" />
+    <ProjectReference Include="..\Platform.Laboratories.Infrastructure\Platform.Laboratories.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
