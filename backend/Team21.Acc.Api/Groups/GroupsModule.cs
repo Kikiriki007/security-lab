@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Team21.Acc.Core.Groups;
+using Team21.Acc.Infrastructure.Groups.Services;
 
 namespace Team21.Acc.Api.Groups;
 
@@ -11,6 +13,8 @@ public static class GroupsModule
     public static IServiceCollection AddGroups(this IServiceCollection services)
     {
         // services.AddScoped<IGroupService, GroupService>();
+        services.AddScoped<IGroupMembershipReader, GroupMembershipReader>();
+        services.AddScoped<IMaterialAccessRuleReader, MaterialAccessRuleReader>();
         return services;
     }
 
