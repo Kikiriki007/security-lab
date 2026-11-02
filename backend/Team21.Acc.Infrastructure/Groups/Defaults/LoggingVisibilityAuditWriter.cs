@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Team21.Acc.Core.Groups.Visibility;
 using Team21.Acc.Core.Groups.Visibility.Interfaces;
 
-namespace Team21.Acc.Infrastructure.Groups.Fakes;
+namespace Team21.Acc.Infrastructure.Groups.Defaults;
 
 /// <summary>Stands in for the AUD log, writes denials to the application log.</summary>
 public sealed class LoggingVisibilityAuditWriter : IVisibilityAuditWriter
