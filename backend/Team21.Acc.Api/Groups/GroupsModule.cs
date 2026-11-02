@@ -27,6 +27,9 @@ public static class GroupsModule
             services.AddSingleton<FakeDirectory>();
             services.AddScoped<IAccountStatusReader, FakeAccountStatusReader>();
             services.AddScoped<ICourseMembershipReader, FakeCourseMembershipReader>();
+
+            services.AddScoped<DemoGroupsSeeder>();
+            services.AddHostedService<DemoSeedHostedService>();
         }
         else
         {

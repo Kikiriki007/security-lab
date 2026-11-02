@@ -13,4 +13,11 @@ public static class DemoIds
     public static readonly Guid StudentB = Guid.Parse("00000000-0000-0000-0000-00000000000b");
     public static readonly Guid BlockedStudent = Guid.Parse("00000000-0000-0000-0000-0000000000bb");
     public static readonly Guid Outsider = Guid.Parse("00000000-0000-0000-0000-0000000000ff");
+
+    public static readonly Guid GroupA = Guid.Parse("00000000-0000-0000-0000-00000000a00a");
+    public static readonly Guid GroupB = Guid.Parse("00000000-0000-0000-0000-00000000a00b");
+
+    // Assignment ids, as the ASN module would own them
+    public static readonly Guid RestrictedToA = Guid.Parse("00000000-0000-0000-0000-00000000d00a");
+    public static readonly Guid CourseWide = Guid.Parse("00000000-0000-0000-0000-00000000d0cc");
 }
