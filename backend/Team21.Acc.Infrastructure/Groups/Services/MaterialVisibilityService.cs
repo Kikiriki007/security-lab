@@ -45,6 +45,9 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         if (_actor.UserId is not { } userId)
             return Error.Unauthorized("Sign in to see materials.");
 
+        if (material is null)
+            return Error.NotFound("Material not found.");
+
         if (!Enum.IsDefined(action))
             return await DenyAsync(userId, material, DenialReason.UnknownAction, ct);
 
