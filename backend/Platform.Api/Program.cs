@@ -3,12 +3,25 @@ using Platform.Access.Composition;
 using Platform.Access.Domain.Enums;
 using Platform.Access.Domain.Models;
 using Platform.Identity.Composition;
+using Platform.Api.Endpoints;
+using Platform.Api.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAccessControl();
 builder.Services.AddIdentityModule();
-var app = builder.Build();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<IRequestSubjectResolver, DevelopmentSubjectResolver>();
+}
+else
+{
+    builder.Services.AddSingleton<IRequestSubjectResolver, UnauthenticatedSubjectResolver>();
+}
+
+var app = builder.Build();
+app.Services.RegisterIdentityAccess();
+app.MapAccountEndpoints();
 // Starter endpoint only. Add domain APIs together with server-side authorization.
 app.MapGet("/api/health", () => Results.Ok(new
 {
