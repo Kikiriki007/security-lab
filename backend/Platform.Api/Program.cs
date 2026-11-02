@@ -2,9 +2,11 @@ using Platform.Access.Contracts;
 using Platform.Access.Composition;
 using Platform.Access.Domain.Enums;
 using Platform.Access.Domain.Models;
+using Platform.Audit.Composition;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAccessControl();
+builder.Services.AddAudit();
 
 var app = builder.Build();
 
