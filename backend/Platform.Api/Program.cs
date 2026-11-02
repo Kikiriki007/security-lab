@@ -1,26 +1,40 @@
+using Platform.Access.Composition;
+using Platform.Access.Contracts;
+using Platform.Access.Domain.Enums;
+using Platform.Access.Domain.Models;
 using Platform.Api.Domain.Identity;
-using Platform.Api.Services.Identity;
 using Platform.Api.Middlewares;
+using Platform.Api.Services.Identity;
+
+// Oba modula imaju interfejs IAccessDecision, pa se koriste aliasi da ime ne bude dvosmisleno.
+using IdentityAccessDecision = Platform.Api.Services.Identity.IAccessDecision;
+using PlatformAccessDecision = Platform.Access.Contracts.IAccessDecision;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddAccessControl();
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAccountRepository, InMemoryAccountRepository>(); // TODO: zameniti trajnim repozitorijumom (PostgreSQL)
-builder.Services.AddSingleton<ISessionManager, NoOpSessionRevoker>();   // zameniti kad IDN-02 bude gotov
 builder.Services.AddSingleton<ICredentialAuthenticator, UnavailableCredentialAuthenticator>(); // zameniti IDN-02 implementacijom
 builder.Services.AddSingleton<ISessionIssuer, UnavailableSessionIssuer>(); // zameniti IDN-02 implementacijom
 builder.Services.AddSingleton<IAuditWriter, LoggerAuditWriter>();
 builder.Services.AddSingleton<IAdminDirectory, ConfigAdminDirectory>();
-builder.Services.AddSingleton<IAccessDecision, AdminOnlyAccessDecision>();
+builder.Services.AddSingleton<IdentityAccessDecision, AdminOnlyAccessDecision>();
 builder.Services.AddScoped<ChangeAccountStatus>();
 builder.Services.AddScoped<LoginAccount>();
 
 if (builder.Environment.IsDevelopment())
+{
     builder.Services.AddScoped<IIdentityContext, StubIdentityContext>();
+    builder.Services.AddSingleton<ISessionManager, DevAlwaysActiveSessionManager>(); // samo za lokalni razvoj
+}
 else
+{
     builder.Services.AddScoped<IIdentityContext, AnonymousIdentityContext>();
+    builder.Services.AddSingleton<ISessionManager, NoOpSessionRevoker>();   // zameniti kad IDN-02 bude gotov
+}
 
 var app = builder.Build();
 
@@ -43,6 +57,29 @@ app.MapGet("/api/health", () => Results.Ok(new
 app.UseMiddleware<SessionValidationMiddleware>();
 
 app.MapControllers();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/api/access/demo-deny", async (
+        PlatformAccessDecision accessDecision,
+        CancellationToken cancellationToken) =>
+    {
+        var decision = await accessDecision.DecideAsync(
+            new AccessRequest(
+                new SubjectRef("demo-student", AccountState.Active),
+                "demo.unknown",
+                null,
+                Guid.NewGuid().ToString("N")),
+            cancellationToken);
+
+        return Results.Ok(new
+        {
+            decision.Outcome,
+            decision.DenialReason,
+            decision.CorrelationId
+        });
+    });
+}
 
 app.Run();
 
