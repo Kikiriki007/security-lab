@@ -67,23 +67,17 @@ Keep the following in mind:
 
 ## Development accounts (US-09)
 
-In the Development environment, the API seeds four accounts (admin, teacher, student, and blocked) when both the identity connection string and the seed password are set. The password is `Seed__DevelopmentPassword` in your local `.env`, at most 128 characters.
-
-All four accounts share this password. The seeder is idempotent: it adds missing accounts and sets a password only on accounts that do not already have one. To change the password, delete the accounts or run `scripts/reset-identity-db.ps1`, then restart the API. Roles are not stored yet because the account model has no role.
-
-## Development accounts (US-09)
-
 In the Development environment the API seeds four accounts in `identity.accounts` when both the identity connection string and a seed password are set: `admin@example.com`, `teacher@example.com`, `student@example.com` and `blocked@example.com` (status Blocked). All use the reserved `example.com` domain.
 
-The password is `Seed__DevelopmentPassword` in your local `.env`. Only a placeholder is in the repository, in `.env.example`.
+The password is `Seed__DevelopmentPassword` in your local `.env`, is limited to 128 characters, and is stored only as a BCrypt hash. The repository's `.env.example` contains a placeholder, not a real password.
 
 Behaviour:
 
-- All four accounts share this password. It is stored only as a BCrypt hash.
+- All four accounts share this password.
 - The seeder is idempotent: it adds missing accounts and sets a password only on accounts that have none. An existing hash is never overwritten.
-- Without the connection string or the password the seed is skipped and the API still starts.
+- Without the connection string or the password, or while the password starts with `CHANGE_ME` (case-insensitive), seeding is skipped and the API still starts.
 - It never runs outside the Development environment.
 - To change the password, delete the four accounts or run `scripts/reset-identity-db.ps1`, then start the API again.
-- Roles (admin, teacher, student) are not stored yet because the account model has no role.
+- Roles (admin, teacher, student) are not stored because the account model has no role.
 
-For integration tests use `TestUsers.Create(accounts, role, status, password)` (`Platform.Tests/Identity/TestUsers.cs`). Without a password the account has no hash and cannot log in.
+Test helper: `TestUsers.Create(accounts, role, status, password)` creates a user in the in-memory repository. `TestUsers.CreateAsync(context, role, status, password)` saves a user in the identity database for login-related tests. `TestUsers.AdminConfiguration(users)` returns the `Stub:AdminIds` configuration needed to make test users with the Administrator role count as admins. Role is not persisted; only Administrator has an effect through this configuration.
