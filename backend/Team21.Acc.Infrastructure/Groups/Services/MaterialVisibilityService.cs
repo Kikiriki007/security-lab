@@ -62,7 +62,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
             return await DenyMaterialAsync(userId, null, material, action, DenialReason.NoRule, ct);
 
         var membership = await _courseMembers.FindAsync(userId, rule.CourseId, ct);
-        if (membership is not { Active: true })
+        if (membership is not { Active: true } || membership.CourseId != rule.CourseId)
             return await DenyMaterialAsync(userId, rule.CourseId, material, action, DenialReason.NotCourseMember, ct);
 
         if (SeesAll(membership))
@@ -87,7 +87,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
             return await DenyCourseAsync(userId, courseId, DenialReason.AccountNotActive, ct);
 
         var membership = await _courseMembers.FindAsync(userId, courseId, ct);
-        if (membership is not { Active: true })
+        if (membership is not { Active: true } || membership.CourseId != courseId)
             return await DenyCourseAsync(userId, courseId, DenialReason.NotCourseMember, ct);
 
         var rules = (await _rules.ListByCourseAsync(courseId, ct))
