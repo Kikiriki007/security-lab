@@ -7,6 +7,7 @@ using Platform.Identity.Services;
 namespace Platform.Api.Services.Identity;
 
 /// <summary>The account model has no role yet, so this role only describes the account and is not persisted.</summary>
+// TODO(IDN-01): when the account model gets a role, persist it here and in DevelopmentAccountSeeder.
 public enum DevelopmentRole
 {
     Student,
@@ -21,6 +22,7 @@ public static class DevelopmentAccountSeeder
 {
     // Set as Seed__DevelopmentPassword in the local .env, see docs/DEVELOPMENT.md.
     public const string PasswordConfigKey = "Seed:DevelopmentPassword";
+    public const string PlaceholderPassword = "CHANGE_ME_FOR_LOCAL_DEVELOPMENT";
 
     // Must match Stub:AdminIds in appsettings.Development.json.
     public static readonly Guid AdminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -54,6 +56,13 @@ public static class DevelopmentAccountSeeder
         {
             logger.LogInformation(
                 "{Key} is not set, development accounts are skipped. See docs/DEVELOPMENT.md.", PasswordConfigKey);
+            return;
+        }
+
+        if (password.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(
+                "The development seed password is still the placeholder; development accounts are skipped. See docs/DEVELOPMENT.md.");
             return;
         }
 
@@ -92,10 +101,21 @@ public static class DevelopmentAccountSeeder
             throw new ArgumentException(
                 $"Password must be no more than {CredentialVerifier.MaxPasswordLength} characters.",
                 nameof(password));
+        if (password.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The development seed password must not be a placeholder.", nameof(password));
 
         if ((await context.Database.GetPendingMigrationsAsync(ct)).Any())
             throw new InvalidOperationException("Identity migrations are not applied. Run 'dotnet ef database update' first.");
 
+        return await UpsertAccountsAsync(context, hasher, password, ct);
+    }
+
+    public static async Task<SeedResult> UpsertAccountsAsync(
+        PlatformIdentityDbContext context,
+        IPasswordHasher hasher,
+        string password,
+        CancellationToken ct = default)
+    {
         var emails = All.Select(account => account.Email).ToArray();
         var accounts = await context.Accounts
             .Where(account => emails.Contains(account.Email))
