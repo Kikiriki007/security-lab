@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using Platform.Api.Domain.Identity;
-using Platform.Api.Domain.Authentication;   
+using Platform.Api.Domain.Authentication;
 
 namespace Platform.Api.Services.Identity;
 
 // TODO(IDN-03 / ADM-02): PRIVREMENO. Podaci su samo u memoriji i nestaju kad se aplikacija ugasi,
 // pa kriterijum "sistem čuva novi status u bazi" nije do kraja ispunjen.
-// Trajno čuvanje (PostgreSQL + migracija) radi . Kad bude gotovo, dovoljno je
+// Trajno čuvanje (PostgreSQL + migracija) radi [ime osobe / task]. Kad bude gotovo, dovoljno je
 // da se napravi nova implementacija IAccountRepository i zameni registracija u Program.cs.
 // Use-case (ChangeAccountStatus) i testovi se ne menjaju.
 public sealed class InMemoryAccountRepository : IAccountRepository
@@ -22,6 +22,16 @@ public sealed class NoOpSessionRevoker : ISessionManager
     public int RevokeAllForUser(Guid userId, string reason, CancellationToken ct = default) => 0;
     public bool RevokeSession(Guid ownerUserId, Guid sessionHandle, CancellationToken ct = default) => false;
     public bool IsSessionActive(Guid userId, Guid sessionHandle, CancellationToken ct = default) => false;
+    public IReadOnlyList<SessionInfo> ListForUser(Guid userId, CancellationToken ct = default) => Array.Empty<SessionInfo>();
+}
+
+/// DEV STUB: u Developmentu svaka sesija iz stub identiteta je aktivna, da se endpointi mogu ručno probati.
+/// Registruje se SAMO u Development okruzenju, do prave IDN-02 implementacije.
+public sealed class DevAlwaysActiveSessionManager : ISessionManager
+{
+    public int RevokeAllForUser(Guid userId, string reason, CancellationToken ct = default) => 0;
+    public bool RevokeSession(Guid ownerUserId, Guid sessionHandle, CancellationToken ct = default) => false;
+    public bool IsSessionActive(Guid userId, Guid sessionHandle, CancellationToken ct = default) => true;
     public IReadOnlyList<SessionInfo> ListForUser(Guid userId, CancellationToken ct = default) => Array.Empty<SessionInfo>();
 }
 
@@ -54,7 +64,7 @@ public sealed class StubIdentityContext(IHttpContextAccessor http) : IIdentityCo
         get
         {
             var raw = http.HttpContext?.Request.Headers["X-Stub-User"].FirstOrDefault();
-            return Guid.TryParse(raw, out var id) ? new CallerIdentity(true, id, AuthenticationLevel.None, new Guid()) : null;
+            return Guid.TryParse(raw, out var id) ? new CallerIdentity(true, id, AuthenticationLevel.None, Guid.NewGuid()) : null;
         }
     }
 }
