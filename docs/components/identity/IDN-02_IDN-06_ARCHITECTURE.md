@@ -1,218 +1,126 @@
 # Project component: IDN-02 Secure login and logout, IDN-06 MFA for selected user groups
 
 **Team:** 1
-
 **Student:** Denis Đuriš / PR 14/2023
-
 **Specification requirements:** IDN-02 (primary), IDN-06, ACC-05, SEC-01, SEC-03, AUD-01, AUD-03. Consumers: IDN-03, IDN-07. Depends on IDN-01 (user entity), IDN-05 (attempt limiting), AUD (`IAuditWriter`) and ADM-02 (migrations).
 
-## Responsibilities and boundaries
+## Responsibilities and current status
 
-- Processes and user scenarios:
-  - **Login (IDN-02):** a user logs in with e-mail and password. The server creates a session, the token is sent only in an HttpOnly cookie, the database stores only its hash.
-  - **Logout (IDN-02):** the session is revoked in the database and the cookie is deleted. The old cookie then gets `401`.
-  - **Session check:** every protected request is checked against the session store, so revoked or expired sessions stop working at once.
-  - **MFA enrollment (IDN-06):** a user scans a QR code (TOTP, `otpauth://`) and confirms the first code. The secret is shown only once.
-  - **MFA verification (IDN-06):** when MFA is required, login creates a session in the `MfaPending` state that can call only MFA endpoints. A correct code upgrades it to `Active`.
-  - **MFA policy:** administrator and teacher must use MFA, student optionally (configurable, proposal pending assistant confirmation).
-- Contracts with other modules:
+- **Login (IDN-02): implemented.** The API accepts e-mail and password, checks credentials and account status, creates a database-backed session, and sends the opaque session token only in an HttpOnly cookie.
+- **Logout (IDN-02): implemented.** The API revokes the session identified by the presented cookie and deletes the cookie. Calling logout without a usable session is idempotent.
+- **Session validation (IDN-02): implemented.** Protected endpoints validate the cookie against the session store; revoked, expired, unknown, or missing sessions receive `401`. Last activity is updated on successful validation.
+- **Identity context: implemented.** `IIdentityContext.Current` is populated from the session validated by middleware. A `MfaPending` identity is not authenticated, but middleware itself does not restrict it to MFA endpoints.
+- **MFA (IDN-06): planned, not implemented.** Login currently creates every successful session as `Active`. MFA enrollment, verification, policy, TOTP secret storage, and MFA-specific endpoints do not exist.
 
-| Contract | Direction | State |
+### Contracts and integrations
+
+| Contract / module | Direction | Current state |
 |-|-|-|
-| `IIdentityContext` | we provide | draft in `docs/contracts/`, fake implemented |
-| `ISessionManagement` | we provide | draft in `docs/contracts/`, in-memory fake implemented |
-| `IMfaPolicy` | we provide | **planned**, not in the specification, needs assistant approval |
-| `IAuditWriter` | we use, owned by AUD | fake until the audit team delivers |
-| Account status | we use, owned by IDN-03 | to be agreed, IDN-03 currently has its own stubs and `ISessionRevoker` |
-| Attempt limiting | we use, owned by IDN-05 | to be agreed, minimal own protection until then |
-| ASP.NET Core Identity | we use | accounts and password verification, no custom cryptography |
+| `IIdentityContext` | we provide | Implemented by `SessionIdentityContext`; see [contract](../../contracts/IIdentityContext.md). |
+| `ISessionManager` | we provide | Database-backed validation, revocation, and listing; see [contract](../../contracts/ISessionManagement.md). |
+| `ISessionCreator` | internal dependency | Implemented by `StoreSessionCreator`; creates sessions through `ISessionStore`. |
+| `IAuditWriter` | we use, owned by AUD | `LoggerAuditWriter` writes structured application logs. Login and logout record events; no secrets are included. |
+| Account status | we use, owned by IDN-03 | `LoginService` denies non-active accounts. IDN-03 requests revocation on blocked/archived status, but currently does not await the asynchronous revocation call. Its account repository remains in-memory. |
+| Attempt limiting | we use, owned by IDN-05 | Not integrated yet. |
+| User credentials | we use, owned by IDN-01 | `ICredentialVerifier`/`EfCredentialStore` read the account and password hash; passwords are checked with the configured BCrypt hasher. ASP.NET Core Identity is not used. |
 
-- Not our responsibility: user entity and registration (IDN-01), account status rules (IDN-03), session list screen (IDN-07), shared attempt limiting (IDN-05), audit store (AUD).
-- Implementation status:
+Not our responsibility: user registration (IDN-01), account status rules (IDN-03), session list screen (IDN-07), shared attempt limiting (IDN-05), and audit persistence (AUD).
+
+### Implementation status
 
 | Part | Story | State |
 |-|-|-|
-| Contracts, fakes, module registration | US-01 | done |
-| Module skeleton, DbContext, migration | US-02 | done |
-| Session model and store | US-03 | done |
-| Login, logout, session check | US-04, US-05, US-06 | done |
-| MFA enrollment, verification, policy | US-17, US-18, US-19 | planned |
+| Identity/session contracts and API wiring | US-01 | Implemented; contracts have evolved from the initial proposals. |
+| Identity DbContext, schema, and migrations | US-02 | Implemented. |
+| Session entity, token generation, and database store | US-03 | Implemented. Raw tokens are returned only for the cookie; SHA-256 hashes are stored. |
+| Login, logout, and request session check | US-04, US-05, US-06 | Implemented. |
+| MFA enrollment, verification, and policy | US-17, US-18, US-19 | Planned. |
 
-Update this table before KT1 so it matches the real code. The diagrams below show the target design, and only rows marked as implemented exist today.
-
-## Component architecture
+## Implemented component architecture
 
 ```mermaid
 flowchart LR
-  Client[React client] -->|login, logout, me| AuthC[AuthController]
-  Client -->|mfa enroll, mfa verify| MfaC[MfaController]
-  Client -->|any request with session cookie| Mw[SessionMiddleware]
+  Browser[Browser] -->|POST login| Auth[LoginController]
+  Auth --> Login[LoginService]
+  Login --> Cred[ICredentialVerifier]
+  Cred --> Accounts[EfCredentialStore]
+  Accounts --> DB[("PostgreSQL: accounts and sessions")]
+  Login --> Creator[StoreSessionCreator]
+  Creator --> Store[ISessionStore / SessionStore]
+  Store --> DB
+  Auth -->|HttpOnly session cookie; no token in body| Browser
 
-  subgraph idn["Identity module: IDN-02 and IDN-06"]
-    AuthC --> Login[LoginUseCase]
-    AuthC --> Logout[LogoutUseCase]
-    MfaC --> Mfa[MfaService: TOTP]
-    Login --> Sess[SessionService]
-    Logout --> Sess
-    Mw --> Sess
-    Mfa --> Sess
-    Login --> Pol[MfaPolicy]
-    Sess --> Store[("SessionStore")]
-    Mfa --> Sec[("TOTP secret store")]
-  end
+  Browser -->|protected request with cookie| Middleware[SessionCheckMiddleware]
+  Middleware --> Manager[SessionManager: ValidateAsync]
+  Manager --> DB
+  Middleware -->|validated session in HttpContext.Items| Context[SessionIdentityContext]
+  Context --> Consumers[IIdentityContext consumers]
 
-  subgraph provided["Contracts we provide"]
-    IIC([IIdentityContext])
-    ISM([ISessionManagement])
-    IMP([IMfaPolicy, planned])
-  end
+  Browser -->|POST logout| LogoutController
+  LogoutController --> Logout[LogoutAccount]
+  Logout --> Store
+  Logout --> DB
 
-  subgraph used["Contracts and modules we use"]
-    IAW([IAuditWriter])
-    Stat([Account status, IDN-03])
-    Lim([Attempt limiting, IDN-05])
-    AspId[ASP.NET Core Identity: accounts and password check]
-  end
-
-  Mw --> IIC
-  Sess --> ISM
-  Pol --> IMP
-  Login --> AspId
-  Login --> Stat
-  Login --> Lim
-  Mfa --> Lim
-  Login --> IAW
-  Logout --> IAW
-  Mfa --> IAW
-  Store --> DB[("PostgreSQL")]
-  Sec --> DB
-  AspId --> DB
+  Consumers -->|status change revocation| Manager
+  Login --> Audit[LoggerAuditWriter]
+  Logout --> Audit
 ```
 
-Layers: controllers only translate the result into an HTTP code. Use-cases and services hold the rules. `SessionStore` is the replaceable technical part (in-memory fake first, PostgreSQL later). The middleware is the only place that reads the cookie, every other module gets the caller from `IIdentityContext`.
+`SessionCookie` centralizes cookie name and options: HttpOnly, Secure, SameSite Strict, path `/`, and the session expiration. `StoreSessionCreator` currently issues sessions with an eight-hour absolute lifetime. `SessionStore` generates a new token and stores its SHA-256 hash with the session. `SessionCheckMiddleware` reads the cookie, bypasses endpoints marked `AllowAnonymous`, and otherwise calls `ISessionManager.ValidateAsync`.
 
-Relations with other modules (solid arrows are agreed or planned dependencies, the dashed arrow is a recommendation that the specification does not require):
+The middleware places a `ValidateSession` in `HttpContext.Items`; `SessionIdentityContext` maps it to `CallerIdentity`. `IsAuthenticated` is true only for `Active`. Middleware accepts a valid `MfaPending` session as a validated session and does not apply endpoint-specific MFA policy.
 
-```mermaid
-flowchart LR
-  subgraph ours["Identity module: IDN-02, IDN-06"]
-    IIC([IIdentityContext])
-    ISM([ISessionManagement])
-  end
+`Program.cs` registers both `StoreSessionManager` and `SessionManager` as `ISessionManager`. With the default Microsoft DI container, a single-interface resolution uses the last registration, `SessionManager`; that is the implementation used by middleware and consumers. `StoreSessionManager` retains no-op list/revocation methods and is not the selected implementation.
 
-  IDN03[IDN-03 account status] -->|RevokeAllForUserAsync| ISM
-  IDN07[IDN-07 session overview] -->|ListForUserAsync, RevokeSessionAsync| ISM
-  IDN04[IDN-04 password reset] -.->|RevokeAllForUserAsync, recommended| ISM
-  ACC[ACC teams: IAccessDecision] -->|caller identity| IIC
-  AUD[AUD teams] -->|actor of events| IIC
-  IDN03 -->|caller identity| IIC
+## Data flow and trust boundary
 
-  ours -->|status check at login| IDN03
-  ours -->|security events| IAW([IAuditWriter, AUD])
-  ours -->|attempt limiting| IDN05[IDN-05]
-  ours -->|users and passwords| IDN01[IDN-01 and ASP.NET Core Identity]
-```
+Everything received from the browser, including credentials and cookies, is untrusted. Identity and account status are established server-side.
 
-## Data flow diagram
+1. Login validates request lengths/presence, normalizes e-mail, verifies the password, and rejects non-active accounts using the same public `invalid_credentials` response as other credential failures.
+2. On success, the session store creates a fresh random token and stores only its hash, user id, level, timestamps, and public handle. The token is returned in the cookie, never the response body.
+3. On a protected request, middleware validates the token against the database, rejects missing/unknown/revoked/expired sessions with `401`, updates last activity, and makes the validated session available to the identity context.
+4. Logout looks up and revokes the session presented in the cookie before deleting the cookie. The old token is rejected on the next protected request.
+5. Session revocation/listing for other modules uses `ISessionManager`; logout uses `ISessionStore.RevokeByTokenAsync`.
 
-Draft, to be confirmed and kept up to date in US-10 and US-28.
+The cookie token and its hash, passwords, and password hashes are not included in login/logout audit events. The public session handle is not a token.
 
-```mermaid
-flowchart LR
-  subgraph untrusted["Untrusted zone"]
-    E1[User browser]
-  end
-  subgraph app["Application zone: server enforces every check"]
-    P1((1 Login))
-    P2((2 MFA verification))
-    P5((5 MFA enrollment))
-    P3((3 Session check))
-    P4((4 Logout and revoke))
-  end
-  subgraph data["Data zone"]
-    D1[("D1 Users and TOTP secrets")]
-    D2[("D2 Sessions")]
-    D3[("D3 Audit log")]
-  end
+## Security behavior and gaps
 
-  E1 -->|"F1 e-mail, password"| P1
-  E1 -->|"F2 TOTP code"| P2
-  E1 -->|"F3 enroll request, confirm code"| P5
-  E1 -->|"F4 any request with cookie"| P3
-  E1 -->|"F5 logout request"| P4
+### Implemented
 
-  P1 -->|"F6 read hash and status"| D1
-  P2 -->|"F7 read secret, attempt counter"| D1
-  P5 -->|"F8 write secret after confirm"| D1
+- Login fails with the same public credential response for unknown e-mail, wrong password, missing password hash, and inactive account. Credential verification checks the password even for an unknown e-mail to reduce timing-based account discovery.
+- A new token is created on login; cookie flags are configured centrally as HttpOnly, Secure, and SameSite Strict.
+- Only a SHA-256 token hash is stored in the database. Session validation checks revocation and expiry on each protected request.
+- `MfaPending` maps to `IsAuthenticated == false` in `IIdentityContext`.
+- Session revocation by public handle checks both owner id and handle; `false` is returned for both unknown and foreign handles.
+- Login and logout audit events do not include passwords, tokens, or hashes.
 
-  P1 -->|"F9 new session"| D2
-  P2 -->|"F10 MfaPending to Active"| D2
-  P3 -->|"F11 read and update last activity"| D2
-  P4 -->|"F12 revoke"| D2
+### Not implemented or not enforced by this component yet
 
-  P1 -->|"F13 events"| D3
-  P2 --> D3
-  P4 --> D3
-  P5 --> D3
+- IDN-05 attempt limiting is not wired into login.
+- IDN-06 MFA policy, enrollment, verification, TOTP storage, and routing of `MfaPending` sessions to MFA-only endpoints are not implemented. Current successful login sessions are `Active`.
+- `SessionCheckMiddleware` validates the session but does not enforce authentication level or endpoint authorization. Consumers must check `IIdentityContext.Current` and `IsAuthenticated`; it is not a global default-deny authorization policy.
+- No explicit anti-CSRF token validation is implemented. SameSite Strict is configured on the cookie but should not be treated as a complete substitute for a CSRF control.
+- The session lifetime is currently an eight-hour absolute lifetime; configurable lifetime and inactivity expiration are not implemented.
+- `ISessionManager.RevokeAllForUser` accepts `reason` but currently does not use or audit it.
+- The IDN-03 account repository is in-memory; its account status changes are not persisted across application restarts.
+- IDN-03 currently invokes `RevokeAllForUser` without awaiting its task. Revocation may complete after the status-change response, and failures are not observed by that caller.
 
-  P1 -->|"cookie, 401"| E1
-  P2 -->|"Active cookie, 401"| E1
-  P3 -->|"identity context, 401"| E1
-  P4 -->|"cookie deleted"| E1
-```
+## Test evidence and local verification
 
-Trust boundary: everything from the browser (body, cookies, headers) is untrusted input. Identity and permissions are decided only on the server. The cookie holds a random token, the database holds only its hash. A `MfaPending` session reaches only processes 2 and 5. No audit event contains passwords, tokens, TOTP secrets or codes (AUD-03).
+Identity tests cover login, logout, credential checking, session validation and middleware behavior, and identity mapping, including `MfaPending` being unauthenticated. Tests are in `backend/Platform.Tests/Identity`.
 
-Order of checks on a protected request: session exists, not revoked, not expired, level is `Active`, then the endpoint policy. Anything else returns `401` with no reason.
-
-## Security requirements
-
-- Server-side access checks:
-  - Session is verified in the store on every protected request (IDN-02, SEC-01). Hiding screens in the client is not a control.
-  - Endpoints without an explicit policy are denied by default (ACC-05).
-  - A `MfaPending` session is not authenticated (`IsAuthenticated == false`) and can reach only MFA endpoints, so a privileged account cannot skip the second factor (IDN-06).
-  - `ISessionManagement.RevokeSessionAsync` takes the owner id from the server, never from the request, and a foreign or unknown handle gives the same answer.
-  - CSRF token required for state-changing requests that use the cookie (SEC-03).
-- Input validation and sensitive data:
-  - Login answers are identical for a wrong password and an unknown account (no account enumeration).
-  - A new session identifier is issued after successful authentication (session fixation).
-  - Cookie flags: HttpOnly, Secure, SameSite. Tokens are at least 128 bits from a cryptographic generator.
-  - TOTP secret shown once, stored protected, never in logs or API responses. TOTP code cannot be reused in the same time window.
-  - Passwords, tokens, TOTP secrets and codes never appear in logs or audit events (AUD-03). Secrets come from user-secrets or environment, never from the repository.
-- Negative scenarios (misuse, control, test). Tests marked *planned* are agreed names and will be linked to requirement IDs when written:
-
-| Misuse | Control | Test |
-|-|-|-|
-| Old cookie used after logout | session revoked in store, `401` | *planned* `OldCookieAfterLogout_Returns401` (US-13) |
-| Expired or revoked session | checked on every request | *planned* (US-14, US-24) |
-| Wrong password versus unknown account | identical response | *planned* (US-13) |
-| Blocked account logs in | no new session | *planned* (US-13, with IDN-03) |
-| Privileged user calls API with `MfaPending` session | only MFA endpoints reachable | *planned* `MfaPending_CannotAccessProtectedResource` (US-25) |
-| Wrong or repeated TOTP code | rejected, attempts limited, replay refused | *planned* (US-25) |
-| CSRF request without token | rejected | *planned* (US-24) |
-| Revoking someone else's session | owner check, `false` | `RevokeSession_BelongingToSomeoneElse_ReturnsFalse_SessionStaysActive` |
-| Probing which session handles exist | foreign and unknown look the same | `RevokeSession_UnknownHandle_LooksTheSameAsForeignSession` |
-| MfaPending treated as logged in | `IsAuthenticated` is false | `MfaPendingSession_IsNotAuthenticated_EvenWithUserId` |
-| Token or hash leaks through session list | `SessionInfo` has no such member | `SessionInfo_ExposesNoTokenOrHash` |
-
-## Evidence of work
-
-- Changed files / commit / pull request: branch `feature/IDN-02-safe-login-logout`
-  - `docs/contracts/IIdentityContext.md`, `docs/contracts/ISessionManagement.md`
-  - `backend/Platform.Api/Services/Identity/Contracts/IdentityContracts.cs`, `IdentityFakes.cs`
-  - `backend/Platform.Tests/Identity/IdentityFakesTests.cs`
-  - `docs/PROJECT_COMPONENTS.md` (team row), this file
-- Run instructions (PowerShell, from the repository root):
+From the repository root:
 
 ```powershell
 dotnet build backend\Platform.Api\Platform.Api.csproj
 dotnet test backend\Platform.Tests\Platform.Tests.csproj
 ```
 
-  Login, logout and MFA endpoints do not exist yet. Instructions for the demonstration (seed users, steps, expected results) will be added in US-26 and US-30.
-- Next steps:
-  1. Agree `IIdentityContext` and the session revoker with IDN-03 (their `ISessionRevoker` stub) and confirm `IMfaPolicy` with the assistant.
-  2. US-02 to US-06: skeleton, session store, login, logout, session check.
-  3. US-12: record the TOTP decision as an ADR, then US-17 to US-19.
-  4. Replace the fakes with the real implementation and run the same contract tests against it (US-16).
-  5. Keep this document, diagrams and the status table in line with the code (US-28).
+## Next steps
+
+1. Integrate the shared IDN-05 attempt limiter and confirm account-status persistence with IDN-03.
+2. Implement IDN-06 MFA policy, enrollment, verification, and endpoint restrictions before claiming MFA protection.
+3. Add explicit authorization/CSRF controls where required by ACC-05 and SEC-03.
+4. Align session lifetime and inactivity behavior with US-14.
+5. Keep this document and the contract docs synchronized with code and tests.
