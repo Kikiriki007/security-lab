@@ -6,6 +6,7 @@ using Platform.Access.Domain.Models;
 using Platform.Api.Domain.Identity;
 using Platform.Api.Middlewares;
 using Platform.Api.Services.Identity;
+using Platform.Audit.Composition;
 
 // Oba modula imaju interfejs IAccessDecision, pa se koriste aliasi da ime ne bude dvosmisleno.
 using IdentityAccessDecision = Platform.Api.Services.Identity.IAccessDecision;
@@ -14,6 +15,7 @@ using PlatformAccessDecision = Platform.Access.Contracts.IAccessDecision;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAccessControl();
+builder.Services.AddAudit();
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
