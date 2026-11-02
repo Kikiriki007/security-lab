@@ -199,7 +199,8 @@ Verzija koda za kolonu "Dokaz": commit `ef107a5` ([PR #28](https://github.com/ow
   - `Platform.Identity.Tests`: 24 testa (22 nad izolovanim hostom sa istim podešavanjem kao
     `Program.cs`, uključujući probni MVC kontroler, i 2 nad celim `Program.cs` preko `WebApplicationFactory`).
   - Lokalno, Visual Studio Test Explorer i `dotnet test`, 1. 11. 2026: 24/24 testova prolazi.
-    CI: testovi se pokreću u GitHub Actions kao korak "Test IDN-05 rate limiting" (`.github/workflows/ci.yml`).
+    CI: projekat je uključen u `backend/SecurityLab.slnx`, pa ga GitHub Actions pokreće u koraku
+    "Test backend solution" (`dotnet test backend/SecurityLab.slnx`, `.github/workflows/ci.yml`).
   - Prvo pokretanje je otkrilo propust (prazna lista proxy-ja u ASP.NET-u znači "veruj svima").
     Ispravljeno je isključivanjem obrade headera kada proxy nije podešen.
 - **Next steps:**
