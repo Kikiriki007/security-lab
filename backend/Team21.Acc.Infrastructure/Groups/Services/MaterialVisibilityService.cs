@@ -133,7 +133,8 @@ public class MaterialVisibilityService : IMaterialVisibilityService
 
     private async Task<Result> DenyAsync(Guid userId, MaterialRef material, DenialReason reason, CancellationToken ct)
     {
-        await _audit.WriteDenialAsync(new VisibilityDenial(userId, material, reason, _correlation.CorrelationId), ct);
+        await _audit.WriteDenialAsync(
+            new VisibilityDenial(userId, null, material, null, DateTime.UtcNow, reason, _correlation.CorrelationId), ct);
         return Error.NotFound("Material not found.");
     }
 

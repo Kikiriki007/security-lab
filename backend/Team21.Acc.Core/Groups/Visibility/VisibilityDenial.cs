@@ -1,6 +1,6 @@
 namespace Team21.Acc.Core.Groups.Visibility;
 
-/// <summary>Why a caller was denied a material.</summary>
+/// <summary>Why a caller was denied a material or a course's material list.</summary>
 public enum DenialReason
 {
     UnknownAction = 1,
@@ -11,9 +11,15 @@ public enum DenialReason
     UnknownVisibility = 6
 }
 
-/// <summary>Audit record for one denial. Holds no material content.</summary>
+/// <summary>
+/// Audit record for one denial. Material is null when a course's material list was denied,
+/// CourseId is null when the material has no rule. Holds no material content.
+/// </summary>
 public sealed record VisibilityDenial(
     Guid? ActorId,
-    MaterialRef Material,
+    Guid? CourseId,
+    MaterialRef? Material,
+    MaterialAction? Action,
+    DateTime OccurredAt,
     DenialReason Reason,
     string CorrelationId);

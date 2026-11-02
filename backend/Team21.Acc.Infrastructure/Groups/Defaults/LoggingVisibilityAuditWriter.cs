@@ -17,8 +17,9 @@ public sealed class LoggingVisibilityAuditWriter : IVisibilityAuditWriter
     public Task WriteDenialAsync(VisibilityDenial denial, CancellationToken ct = default)
     {
         _logger.LogWarning(
-            "Visibility denied: actor {ActorId}, material {MaterialType}/{MaterialId}, reason {Reason}, correlation {CorrelationId}",
-            denial.ActorId, denial.Material.Type, denial.Material.MaterialId, denial.Reason, denial.CorrelationId);
+            "Visibility denied at {OccurredAt:O}: actor {ActorId}, course {CourseId}, material {MaterialType}/{MaterialId}, action {Action}, reason {Reason}, correlation {CorrelationId}",
+            denial.OccurredAt, denial.ActorId, denial.CourseId, denial.Material?.Type, denial.Material?.MaterialId,
+            denial.Action, denial.Reason, denial.CorrelationId);
 
         return Task.CompletedTask;
     }
