@@ -23,20 +23,20 @@ public class ChangeAccountStatusTests
     private sealed class RecordingRevoker : ISessionManager
     {
         public List<Guid> Revoked { get; } = new();
-        public int RevokeAllForUser(Guid userId, string reason, CancellationToken ct = default)
+        public Task<int> RevokeAllForUser(Guid userId, string reason, CancellationToken ct = default)
         {
             Revoked.Add(userId);
             int count = Revoked.Count;
-            return count;
+            return Task.FromResult(count);
         }
         public Task<ValidateSession?> ValidateAsync(string token, CancellationToken ct = default) => Task.FromResult<ValidateSession?>(null);
-        public bool RevokeSession(Guid ownerUserId, Guid sessionHandle, CancellationToken ct = default)
+        public Task<bool> RevokeSession(Guid ownerUserId, Guid sessionHandle, CancellationToken ct = default)
         {
             Revoked.Add(ownerUserId);
-            return true;
+            return Task.FromResult(true);
         }
 
-        public IReadOnlyList<SessionInfo> ListForUser(Guid userId, CancellationToken ct = default) => Array.Empty<SessionInfo>();
+        public Task<IReadOnlyList<SessionInfo>> ListForUser(Guid userId, CancellationToken ct = default) => Task.FromResult((IReadOnlyList<SessionInfo>)Array.Empty<SessionInfo>());
     }
 
     private sealed class RecordingAudit : IAuditWriter

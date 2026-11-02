@@ -21,9 +21,9 @@ public sealed class InMemoryAccountRepository : IAccountRepository
 /// Proverava sesiju u bazi (US-06). Opoziv jos ne postoji.
 public sealed class StoreSessionManager : ISessionManager
 {
-    public int RevokeAllForUser(Guid userId, string reason, CancellationToken ct = default) => 0;
-    public bool RevokeSession(Guid ownerUserId, Guid sessionHandle, CancellationToken ct = default) => false;
-    public IReadOnlyList<SessionInfo> ListForUser(Guid userId, CancellationToken ct = default) => Array.Empty<SessionInfo>();
+    public Task<int> RevokeAllForUser(Guid userId, string reason, CancellationToken ct = default) => Task.FromResult(0);
+    public Task<bool> RevokeSession(Guid ownerUserId, Guid sessionHandle, CancellationToken ct = default) => Task.FromResult(false);
+    public Task<IReadOnlyList<SessionInfo>> ListForUser(Guid userId, CancellationToken ct = default) => Task.FromResult((IReadOnlyList<SessionInfo>)Array.Empty<SessionInfo>());
     private readonly ISessionStore _sessionStore = null!;
     public StoreSessionManager(ISessionStore sessionStore)
     {

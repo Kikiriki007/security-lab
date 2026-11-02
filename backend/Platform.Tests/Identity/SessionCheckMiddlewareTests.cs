@@ -115,6 +115,7 @@ public class SessionCheckMiddlewareTests
         var token = "revoked-token";
 
         SessionReturns(token, null);
+
         context.Request.Headers.Cookie = $"{SessionCookie.Name}={token}";
 
         await _middleware.Invoke(context, _sessions.Object);
