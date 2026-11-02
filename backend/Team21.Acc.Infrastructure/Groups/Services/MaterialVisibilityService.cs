@@ -21,6 +21,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
     private readonly IMaterialAccessRuleReader _rules;
     private readonly IGroupMembershipReader _groups;
     private readonly IVisibilityAuditWriter _audit;
+    private readonly TimeProvider _time;
 
     public MaterialVisibilityService(
         ICurrentActor actor,
@@ -29,7 +30,8 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         ICourseMembershipReader courseMembers,
         IMaterialAccessRuleReader rules,
         IGroupMembershipReader groups,
-        IVisibilityAuditWriter audit)
+        IVisibilityAuditWriter audit,
+        TimeProvider time)
     {
         _actor = actor;
         _correlation = correlation;
@@ -38,6 +40,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         _rules = rules;
         _groups = groups;
         _audit = audit;
+        _time = time;
     }
 
     public async Task<Result> CanAccessAsync(MaterialRef material, MaterialAction action, CancellationToken ct = default)
@@ -49,18 +52,18 @@ public class MaterialVisibilityService : IMaterialVisibilityService
             return Error.NotFound("Material not found.");
 
         if (!Enum.IsDefined(action))
-            return await DenyAsync(userId, material, DenialReason.UnknownAction, ct);
+            return await DenyMaterialAsync(userId, null, material, action, DenialReason.UnknownAction, ct);
 
         if (await _accounts.GetStatusAsync(userId, ct) != AccountStatus.Active)
-            return await DenyAsync(userId, material, DenialReason.AccountNotActive, ct);
+            return await DenyMaterialAsync(userId, null, material, action, DenialReason.AccountNotActive, ct);
 
         var rule = await _rules.FindAsync(material, ct);
         if (rule is null)
-            return await DenyAsync(userId, material, DenialReason.NoRule, ct);
+            return await DenyMaterialAsync(userId, null, material, action, DenialReason.NoRule, ct);
 
         var membership = await _courseMembers.FindAsync(userId, rule.CourseId, ct);
         if (membership is not { Active: true })
-            return await DenyAsync(userId, material, DenialReason.NotCourseMember, ct);
+            return await DenyMaterialAsync(userId, rule.CourseId, material, action, DenialReason.NotCourseMember, ct);
 
         if (SeesAll(membership))
             return Result.Success();
@@ -72,7 +75,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         var reason = Check(rule, groupIds);
         return reason is null
             ? Result.Success()
-            : await DenyAsync(userId, material, reason.Value, ct);
+            : await DenyMaterialAsync(userId, rule.CourseId, material, action, reason.Value, ct);
     }
 
     public async Task<Result<IReadOnlyList<MaterialRef>>> FilterVisibleAsync(Guid courseId, CancellationToken ct = default)
@@ -81,11 +84,11 @@ public class MaterialVisibilityService : IMaterialVisibilityService
             return Error.Unauthorized("Sign in to see materials.");
 
         if (await _accounts.GetStatusAsync(userId, ct) != AccountStatus.Active)
-            return CourseNotFound();
+            return await DenyCourseAsync(userId, courseId, DenialReason.AccountNotActive, ct);
 
         var membership = await _courseMembers.FindAsync(userId, courseId, ct);
         if (membership is not { Active: true })
-            return CourseNotFound();
+            return await DenyCourseAsync(userId, courseId, DenialReason.NotCourseMember, ct);
 
         var rules = (await _rules.ListByCourseAsync(courseId, ct))
             .Where(r => r.CourseId == courseId)
@@ -131,12 +134,22 @@ public class MaterialVisibilityService : IMaterialVisibilityService
             .ToHashSet();
     }
 
-    private async Task<Result> DenyAsync(Guid userId, MaterialRef material, DenialReason reason, CancellationToken ct)
+    private async Task<Result> DenyMaterialAsync(
+        Guid userId, Guid? courseId, MaterialRef material, MaterialAction action, DenialReason reason, CancellationToken ct)
     {
-        await _audit.WriteDenialAsync(
-            new VisibilityDenial(userId, null, material, null, DateTime.UtcNow, reason, _correlation.CorrelationId), ct);
+        await WriteDenialAsync(userId, courseId, material, action, reason, ct);
         return Error.NotFound("Material not found.");
     }
 
-    private static Error CourseNotFound() => Error.NotFound("Course not found.");
+    private async Task<Error> DenyCourseAsync(Guid userId, Guid courseId, DenialReason reason, CancellationToken ct)
+    {
+        await WriteDenialAsync(userId, courseId, null, null, reason, ct);
+        return Error.NotFound("Course not found.");
+    }
+
+    private Task WriteDenialAsync(
+        Guid userId, Guid? courseId, MaterialRef? material, MaterialAction? action, DenialReason reason, CancellationToken ct) =>
+        _audit.WriteDenialAsync(
+            new VisibilityDenial(userId, courseId, material, action, _time.GetUtcNow().UtcDateTime, reason, _correlation.CorrelationId),
+            ct);
 }

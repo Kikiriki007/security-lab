@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Team21.Acc.Core.Groups;
 using Team21.Acc.Core.Groups.Visibility.Interfaces;
@@ -34,6 +35,7 @@ public static class GroupsModule
         }
 
         services.AddScoped<IVisibilityAuditWriter, LoggingVisibilityAuditWriter>();
+        services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IMaterialVisibilityService, MaterialVisibilityService>();
 
         return services;
