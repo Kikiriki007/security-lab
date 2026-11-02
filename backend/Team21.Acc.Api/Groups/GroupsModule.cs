@@ -34,6 +34,7 @@ public static class GroupsModule
         }
 
         services.AddScoped<IVisibilityAuditWriter, LoggingVisibilityAuditWriter>();
+        services.AddScoped<IMaterialVisibilityService, MaterialVisibilityService>();
 
         return services;
     }
