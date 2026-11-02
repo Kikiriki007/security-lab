@@ -1,6 +1,6 @@
 # Project component: IDN-05, ograničenje broja pokušaja prijave (rate limiting)
 
-**Team:** TIM05
+**Team:** Tim 4
 
 **Student:** Nemanja Vuksa / PR12/2023
 
@@ -37,7 +37,8 @@ AUD-03, AUD-04; zavisi od IDN-02 (prijava) i IDN-04 (reset lozinke).
 - **Implementation status:**
   - Implementirano i testirano: politike, particionisanje po IP-u, 429 odgovor, ForwardedHeaders,
     konfiguracija i validacija, uključivanje u `Program.cs`.
-  - Login (IDN-02) i reset (IDN-04) endpointi još nisu spojeni na `main`; politike se kače kad budu.
+  - `LoginController` (`POST /api/auth/login`) postoji na `main`-u; atribut `[EnableRateLimiting(RateLimitPolicies.Login)]`
+    na njega dodaje vlasnik IDN-02. Endpoint za reset lozinke (IDN-04) još ne postoji.
   - `ILoginAttemptLimiter`: planirano (isprekidano na dijagramima).
 
 ## Component architecture
@@ -198,16 +199,15 @@ Verzija koda za kolonu "Dokaz": commit `ef107a5` ([PR #28](https://github.com/ow
   - `Platform.Identity.Tests`: 24 testa (22 nad izolovanim hostom sa istim podešavanjem kao
     `Program.cs`, uključujući probni MVC kontroler, i 2 nad celim `Program.cs` preko `WebApplicationFactory`).
   - Lokalno, Visual Studio Test Explorer i `dotnet test`, 1. 11. 2026: 24/24 testova prolazi.
-    CI: trenutni CI samo builduje API i ne pokreće testove; rezultat builda je vidljiv u PR #28.
+    CI: testovi se pokreću u GitHub Actions kao korak "Test IDN-05 rate limiting" (`.github/workflows/ci.yml`).
   - Prvo pokretanje je otkrilo propust (prazna lista proxy-ja u ASP.NET-u znači "veruj svima").
     Ispravljeno je isključivanjem obrade headera kada proxy nije podešen.
 - **Next steps:**
   - Implementirati `ILoginAttemptLimiter` sa implementacijom u memoriji i testovima (blokada posle N
     neuspeha, isto ponašanje za nepostojeći email, istek blokade, reset posle uspeha).
-  - Zavisnost od IDN-02: poziv iz `LoginAccount` na mestu predviđenom za IDN-05 i atribut
+  - Zavisnost od IDN-02: poziv iz `LoginAccount.Execute` pre provere lozinke i atribut
     `[EnableRateLimiting(RateLimitPolicies.Login)]` na `LoginController`. Revizorski zapis za blokiranu
     prijavu piše login tok (AUD-01).
   - Zavisnost od IDN-04: atribut `PasswordReset` na endpointu za reset lozinke.
-  - Posle merge-a IDN-02: premestiti testove u zajednički `backend/Platform.Tests`, da se pokreću u CI-ju.
   - Kasnije: brojače neuspeha čuvati u bazi identity modula umesto u memoriji.
   - Podesiti `KnownProxies` u deployment konfiguraciji kada se zna adresa reverse proxy-ja.
