@@ -1,10 +1,12 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UserSecretsId>3fd00482-a54c-426f-9d2a-0f2204817946</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Platform.Access\Platform.Access.csproj" />
+    <ProjectReference Include="..\Platform.Identity\Platform.Identity.csproj" />
   </ItemGroup>
 </Project>

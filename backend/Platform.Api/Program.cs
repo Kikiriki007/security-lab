@@ -2,10 +2,11 @@ using Platform.Access.Contracts;
 using Platform.Access.Composition;
 using Platform.Access.Domain.Enums;
 using Platform.Access.Domain.Models;
+using Platform.Identity.Composition;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAccessControl();
-
+builder.Services.AddIdentityModule();
 var app = builder.Build();
 
 // Starter endpoint only. Add domain APIs together with server-side authorization.
