@@ -43,7 +43,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         _time = time;
     }
 
-    public async Task<Result> CanAccessAsync(MaterialRef material, MaterialAction action, CancellationToken ct = default)
+    public async Task<Result> CanAccessAsync(MaterialRef? material, MaterialAction action, CancellationToken ct = default)
     {
         if (_actor.UserId is not { } userId)
             return Error.Unauthorized("Sign in to see materials.");
