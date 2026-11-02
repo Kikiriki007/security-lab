@@ -28,6 +28,30 @@ Ugovor trenutno obuhvata:
 - `AccessDecision` — ishod, razlog, politika, verzija i korelacioni ID;
 - `IActionCatalog`, `IAccessPolicyRegistry` i `IAccessAuditWriter` — granice za buduće adaptere.
 
+`IActionCatalog` izlaže tipizovane `ActionDefinition` zapise. Početni katalog sadrži
+akcije iz matrice ACC-05, uključujući scope (`Public`, `System` ili `Course`),
+tip resursa i oznaku privilegovane akcije.
+
+## Pravilo registracije akcija
+
+`Platform.Access` poseduje centralni, verzionisani katalog dozvoljenih akcija.
+Akcija se mora dodati u `AccessActions` i registrovati kroz
+`InMemoryActionCatalog` pre nego što je bilo koji modul upotrebi u politici,
+endpoint metapodacima ili `AccessRequest`-u. Nepoznata akcija se odbija
+(`UnknownAction`), tako da novi modul ne može proširiti authorization površinu
+samostalnom konfiguracijom, bazom ili runtime registracijom.
+
+Dodavanje akcije obuhvata:
+
+1. definiciju ID-a u `AccessActions`;
+2. deklaraciju scope-a, tipa resursa i privilegovanosti;
+3. proveru kompletnosti i jedinstvenosti kataloga;
+4. pripadajuću politiku i testove u modulu koji akciju koristi.
+
+Centralni katalog je nameran izbor za početnu verziju: omogućava pregled cele
+authorization površine kroz code review i sprečava da pojedinačni moduli
+samostalno uvedu preširoku ili nekonzistentnu dozvolu.
+
 Podaci o identitetu, ulozi, članstvu i vlasništvu moraju doći sa servera, ne iz headera, tela ili query stringa klijentskog zahteva.
 
 ## Implementacija 
