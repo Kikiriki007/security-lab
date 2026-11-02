@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Platform.Api.Controllers.Identity;
 using Platform.Api.Domain.Authentication;
 using Platform.Api.Services.Identity;
+using Moq;
 
 namespace Platform.Tests.Identity;
 
@@ -10,14 +11,14 @@ namespace Platform.Tests.Identity;
 [Category("US-06")]
 public class MeControllerTests
 {
-    private FakeIdentityContext _identity = null!;
+    private Mock<IIdentityContext> _identity = null!;
     private MeController _controller = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _identity = new FakeIdentityContext();
-        _controller = new MeController(_identity)
+        _identity = new Mock<IIdentityContext>();
+        _controller = new MeController(_identity.Object)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
         };
@@ -26,6 +27,8 @@ public class MeControllerTests
     [Test]
     public void NoCaller_Returns401()
     {
+        CallerIs(null);
+
         var result = _controller.Me();
 
         Assert.That(result, Is.InstanceOf<UnauthorizedResult>());
@@ -34,8 +37,7 @@ public class MeControllerTests
     [Test]
     public void MfaPendingCaller_Returns401()
     {
-        _identity.UserId = Guid.NewGuid();
-        _identity.Level = AuthenticationLevel.MfaPending;
+        CallerIs(new CallerIdentity(false, Guid.NewGuid(), AuthenticationLevel.MfaPending, Guid.NewGuid()));
 
         var result = _controller.Me();
 
@@ -46,9 +48,7 @@ public class MeControllerTests
     public void ActiveCaller_ReturnsOnlyUserIdAndLevel()
     {
         var userId = Guid.NewGuid();
-        _identity.UserId = userId;
-        _identity.Level = AuthenticationLevel.Active;
-        _identity.CurrentSessionHandle = Guid.NewGuid();
+        CallerIs(new CallerIdentity(true, userId, AuthenticationLevel.Active, Guid.NewGuid()));
 
         var result = _controller.Me() as OkObjectResult;
 
@@ -60,4 +60,7 @@ public class MeControllerTests
         Assert.That(body.GetType().GetProperty("level")!.GetValue(body), Is.EqualTo("Active"));
         Assert.That(_controller.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
     }
+
+    private void CallerIs(CallerIdentity? caller) =>
+        _identity.Setup(i => i.Current).Returns(caller);
 }
