@@ -43,7 +43,7 @@ public static class Team21AccModule
         services.AddScoped<IGroupsDbContext>(provider => provider.GetRequiredService<GroupsDbContext>());
 
         services.AddCourses();
-        services.AddGroups();
+        services.AddGroups(builder.Environment);
 
         return builder;
     }

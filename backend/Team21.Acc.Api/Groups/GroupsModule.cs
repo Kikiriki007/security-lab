@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Team21.Acc.Core.Groups;
+using Team21.Acc.Core.Groups.Visibility.Interfaces;
+using Team21.Acc.Infrastructure.Groups.Fakes;
 using Team21.Acc.Infrastructure.Groups.Services;
 
 namespace Team21.Acc.Api.Groups;
@@ -10,11 +13,21 @@ namespace Team21.Acc.Api.Groups;
 /// </summary>
 public static class GroupsModule
 {
-    public static IServiceCollection AddGroups(this IServiceCollection services)
+    public static IServiceCollection AddGroups(this IServiceCollection services, IHostEnvironment environment)
     {
         // services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IGroupMembershipReader, GroupMembershipReader>();
         services.AddScoped<IMaterialAccessRuleReader, MaterialAccessRuleReader>();
+
+        // Other teams' modules, faked in Development only
+        if (environment.IsDevelopment())
+        {
+            services.AddSingleton<FakeDirectory>();
+            services.AddScoped<IAccountStatusReader, FakeAccountStatusReader>();
+            services.AddScoped<ICourseMembershipReader, FakeCourseMembershipReader>();
+            services.AddScoped<IVisibilityAuditWriter, LoggingVisibilityAuditWriter>();
+        }
+
         return services;
     }
 
