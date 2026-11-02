@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Platform.Identity.Domain.Models;
 using Platform.Identity.Infrastructure.Persistence;
+using Platform.Identity.Application;
+using Platform.Identity.Contracts;
 
 namespace Platform.Identity.Composition;
 
@@ -22,6 +24,8 @@ public static class IdentityServiceCollectionExtensions
                 options.Password.RequiredLength = 12;
             })
             .AddEntityFrameworkStores<AccountDbContext>();
+            
+            services.AddScoped<IAccountRegistration, AccountRegistrationService>();
 
         return services;
     }
