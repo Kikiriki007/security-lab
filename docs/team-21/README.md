@@ -30,6 +30,7 @@ backend/
     Services/HeaderCurrentActor.cs  fake login for Development
   Team21.Acc.Tests/                 NUnit tests
 docs/team-21/                       this file and our KT1 / KT2 documents
+  acc06-visibility/                 ACC-06 material visibility diagrams
 ```
 
 Core knows nothing about EF or HTTP and Infrastructure knows nothing about HTTP. That's the dependency direction the spec checks for (chapter 8.2), and the compiler holds it for us.
@@ -213,6 +214,15 @@ Whoever first needs one writes the interface and its fake next to their code, re
 | Material catalog | Labs and assignments | LAB / ASN teams | not needed while the visibility write side is not ours |
 
 A fake is a test double, not an integration. Member 9 replaces them once the other teams have endpoints.
+
+## ACC-06 visibility diagrams
+
+The KT1 diagrams for server-side material visibility are in [acc06-visibility/](acc06-visibility/).
+
+- **[Component architecture diagram](acc06-visibility/component-architecture.png).** The two material endpoints, `MaterialVisibilityService`, the readers it depends on and who owns each one. Team 21 readers are real, other teams' readers are fakes in Development and deny everyone elsewhere.
+- **[Data flow diagram](acc06-visibility/data-flow.png).** Who asks for a material, the checks the request goes through, the tables and modules it reads, where the audit record goes and where the trust boundaries are. Denials, including a swapped id, a direct URL and a removed member, end in 404.
+
+The decision rules behind both diagrams are in `Team21.Acc.Infrastructure/Groups/Services/MaterialVisibilityService.cs`. The group model they read is in [ACC-06-model.md](ACC-06-model.md).
 
 ## Commits
 
