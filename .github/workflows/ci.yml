@@ -13,6 +13,28 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Build API starter
         run: dotnet build backend/Platform.Api/Platform.Api.csproj --configuration Release
+      - name: ACC-04 and ADM-08 tests
+        run: dotnet test backend/SecurityLab.slnx --configuration Release --logger "trx;LogFileName=acc04-adm08-kt1.trx" --results-directory TestResults
+      - name: Live KT1 demonstration
+        shell: bash
+        run: |
+          ASPNETCORE_ENVIRONMENT=Development Kt1Demo__Enabled=true dotnet backend/Platform.Api/bin/Release/net10.0/Platform.Api.dll --urls http://127.0.0.1:5080 > /tmp/kt1-api.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:5080/api/kt1/info > /dev/null; then ready=true; break; fi
+            sleep 0.5
+          done
+          if [ "$ready" != true ]; then cat /tmp/kt1-api.log; exit 1; fi
+          pwsh -NoLogo -NoProfile -File scripts/kt1-demo.ps1 -BaseUrl http://127.0.0.1:5080
+      - name: Upload KT1 test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acc04-adm08-kt1-results
+          path: TestResults/
+          if-no-files-found: warn
   frontend:
     runs-on: ubuntu-latest
     steps:

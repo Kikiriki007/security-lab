@@ -1,3 +1,4 @@
+import CourseworkKt1 from './components/CourseworkKt1'
 import { useEffect, useState } from 'react'
 
 export default function App() {
@@ -12,5 +13,6 @@ export default function App() {
     <h1>Security Lab</h1>
     <p>An interactive laboratory platform for the Fundamentals of Information Security course. Develop features through the assigned project components.</p>
     <section><h2>Development status</h2><p>{health}</p><p>KT1: initial implementation, component architecture, and data flow diagram.</p></section>
+    <CourseworkKt1 />
   </main>
 }

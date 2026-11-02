@@ -1,3 +1,4 @@
+using Platform.Api.Modules.Kt1;
 using Platform.Access.Contracts;
 using Platform.Access.Composition;
 using Platform.Access.Domain.Enums;
@@ -5,8 +6,16 @@ using Platform.Access.Domain.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddAccessControl();
+var kt1Enabled = Kt1Endpoints.Enabled(builder.Environment, builder.Configuration);
+if (kt1Enabled) builder.Services.AddCourseworkKt1();
 
 var app = builder.Build();
+if (kt1Enabled)
+{
+    app.UseAuthentication();
+    app.RegisterCourseworkPolicies();
+    app.MapCourseworkKt1();
+}
 
 // Starter endpoint only. Add domain APIs together with server-side authorization.
 app.MapGet("/api/health", () => Results.Ok(new

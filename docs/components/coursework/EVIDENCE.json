@@ -1,0 +1,49 @@
+{
+  "requirements": [
+    "ACC-04",
+    "ADM-08"
+  ],
+  "baseCommit": "0d2d5ced289d7b23abca4b1ad35895d1cb3b9057",
+  "localValidation": {
+    "date": "2026-11-01",
+    "environment": "Linux / .NET 10.0.403 / PowerShell 7.6.9",
+    "nunit": {
+      "total": 60,
+      "passed": 60,
+      "failed": 0,
+      "skipped": 0
+    },
+    "liveHttpDemo": {
+      "total": 41,
+      "passed": 41,
+      "revocationProof": {
+        "separateClients": true,
+        "samePreRevocationCookie": true,
+        "delegateSignIns": 1
+      }
+    },
+    "frontendBuild": "PASS",
+    "browser": "PASS",
+    "revision": "Corrected old-session regression and DFD return/denial data flows; actual test reports regenerated.",
+    "browserProof": {
+      "passed": true,
+      "separateBrowserContexts": true,
+      "delegateSignIns": 1,
+      "samePreRevocationCookie": true,
+      "readAfterRevoke": 404,
+      "writeAfterRevoke": 404,
+      "viewportWidth": 420
+    }
+  },
+  "externalEvidence": {
+    "newPrUrl": null,
+    "testedCommit": null,
+    "ciRunUrl": null,
+    "ciArtifactConfirmed": false,
+    "tapizTaskLinks": [],
+    "neighborContractReview": null,
+    "contributors": [],
+    "referenceStatus": "PENDING_REAL_EXTERNAL_EVIDENCE"
+  },
+  "note": "No remote task, external acceptance, student commit, or GitHub Actions success is fabricated. Complete external references after actual actions."
+}

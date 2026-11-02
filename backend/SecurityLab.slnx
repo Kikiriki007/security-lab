@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Platform.Access/Platform.Access.csproj" />
+  <Project Path="Platform.Api/Platform.Api.csproj" />
+  <Project Path="Platform.Kt1.Tests/Platform.Kt1.Tests.csproj" />
+</Solution>
