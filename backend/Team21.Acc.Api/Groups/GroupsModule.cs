@@ -44,7 +44,7 @@ public static class GroupsModule
     public static IEndpointRouteBuilder MapGroups(this IEndpointRouteBuilder app)
     {
         // app.MapGroupEndpoints();      // routes under /api/courses/{courseId}/groups
-        // app.MapMaterialEndpoints();   // routes under /api/materials
+        app.MapMaterialEndpoints();
         return app;
     }
 }
