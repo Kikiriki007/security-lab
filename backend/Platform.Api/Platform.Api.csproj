@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Platform.Access\Platform.Access.csproj" />
+    <ProjectReference Include="..\Platform.Audit\Platform.Audit.csproj" />
   </ItemGroup>
 </Project>
