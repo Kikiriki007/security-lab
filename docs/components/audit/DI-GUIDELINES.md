@@ -26,7 +26,7 @@ Forbidden:
 - Resolving a scoped service from the root provider.
 - Relying on "last registration wins" to replace an adapter. Replace it explicitly.
 
-## Current state (checked on `main`, commit `0d2d5ced`)
+## Current state (checked on `main`, commit `e7474c7`)
 
 - `AddAccessControl()` registers `IAccessDecision` and `IAccessAuditWriter` as singletons.
   This is valid today because their dependencies are singletons too.
@@ -34,7 +34,13 @@ Forbidden:
   `NullAccessAuditWriter`. `IAccessDecision` and `IAccessAuditWriter` must then become
   scoped together, otherwise the host will not start under validation. This change belongs
   to the Access integration and needs review by the Access team.
-- `AddAudit()` registers nothing yet. It is the only entry point `Platform.Api` calls.
+- `Platform.Api` now also registers the Identity services. Identity has its own `IAuditWriter`
+  (a singleton `LoggerAuditWriter`) and its own `IAccessDecision`, both in the
+  `Platform.Api.Services.Identity` namespace. They are separate from the Access contracts and
+  from the future Audit contract. Which audit contract the Identity code should use is an open
+  question for the Audit and Identity owners.
+- `AddAudit()` registers nothing yet. It is the only entry point `Platform.Api` calls for the
+  Audit module.
 
 ## Proposed registration order
 

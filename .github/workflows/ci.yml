@@ -11,10 +11,37 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Build API starter
-        run: dotnet build backend/Platform.Api/Platform.Api.csproj --configuration Release
-      - name: Test
-        run: dotnet test backend/Platform.Tests/Platform.Tests.csproj --configuration Release
+      - name: Build backend solution
+        run: dotnet build backend/SecurityLab.slnx --configuration Release
+      - name: Test backend solution
+        run: >
+          dotnet test backend/SecurityLab.slnx --configuration Release --no-build
+          --logger "trx" --results-directory TestResults
+      - name: Verify tests were discovered and executed
+        shell: bash
+        run: |
+          mapfile -t files < <(find TestResults -name '*.trx' 2>/dev/null)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No TRX result files were produced."
+            exit 1
+          fi
+          total=0
+          for f in "${files[@]}"; do
+            n=$(grep -o 'executed="[0-9]*"' "$f" | head -n 1 | grep -o '[0-9]*' || true)
+            total=$((total + ${n:-0}))
+          done
+          echo "Executed tests: $total"
+          if [ "$total" -eq 0 ]; then
+            echo "::error::Zero tests were executed; a green run with no tests proves nothing."
+            exit 1
+          fi
+      - name: Upload backend test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results-${{ github.sha }}
+          path: TestResults/
+          if-no-files-found: error
   frontend:
     runs-on: ubuntu-latest
     steps:
