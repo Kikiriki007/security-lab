@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-
-type DemoInfo = { personas: string[]; attempts: { id: string; label: string }[] }
+import { useAuth } from '../auth/AuthContext'
+import type { DemoInfo } from '../types/accessDemo'
 
 export default function AccessDemo() {
+  const { request } = useAuth()
   const [info, setInfo] = useState<DemoInfo | null>(null)
   const [persona, setPersona] = useState('ana')
   const [attempt, setAttempt] = useState('')
@@ -13,7 +14,7 @@ export default function AccessDemo() {
   const [loadedVersion, setLoadedVersion] = useState<number | null>(null)
 
   useEffect(() => {
-    fetch('/api/access-demo/info').then(async response => {
+    request('/api/access-demo/info').then(async response => {
       if (!response.ok) return
       const data: DemoInfo = await response.json()
       setInfo(data)
@@ -27,7 +28,7 @@ export default function AccessDemo() {
     try {
       const path = action === 'session' ? `session/${persona}` :
         action === 'read' ? `attempts/${attempt}` : action === 'update' ? `attempts/${attempt}/answer` : 'logout'
-      const response = await fetch(`/api/access-demo/${path}`, action === 'read' ? {} : action === 'update' ?
+      const response = await request(`/api/access-demo/${path}`, action === 'read' ? {} : action === 'update' ?
         { method: 'PUT', headers: { 'X-Access-Demo': '1', 'Content-Type': 'application/json' },
           body: JSON.stringify({ answer, expectedVersion: loadedVersion }) } :
         { method: 'POST', headers: { 'X-Access-Demo': '1' } })
