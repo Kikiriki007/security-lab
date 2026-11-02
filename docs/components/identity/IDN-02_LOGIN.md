@@ -21,7 +21,7 @@ curl -i -X POST https://localhost:5080/api/auth/login -H "Content-Type: applicat
 
 ## How it works
 
-1. `LoginAccount` (`Platform.Api/Services/Identity`) validates the input and calls `ICredentialVerifier` (`Platform.Identity/Services`).
+1. `Login` (`Platform.Api/Services/Identity`) validates the input and calls `ICredentialVerifier` (`Platform.Identity/Services`).
 2. The verifier trims and lower-cases the e-mail, reads `identity.accounts` and checks the password with BCrypt (`IPasswordHasher`, work factor 12, SHA-384 pre-hash so long passwords are not cut at 72 bytes). The hash check also runs for unknown e-mails (dummy hash), so timing does not show which e-mails exist.
 3. Only an `Active` account gets a session. Blocked and archived accounts get the same `401` as a wrong password; the real reason is only in the audit event.
 4. `ISessionCreator.CreateAsync(userId, AuthenticationLevel.Active)` creates a new session every time (session fixation protection). `StoreSessionCreator` saves it through `ISessionStore` in `identity.sessions`, with a lifetime of 8 hours until US-14 moves it into configuration.
@@ -42,11 +42,11 @@ To create a hash for a seed user or a test: `new BCryptPasswordHasher().Hash(pas
 | US-07, US-08 frontend | Send the request with credentials included. Read only the status code and `code`; show one generic message for `401`. |
 | US-09 seed users | Done. `DevelopmentAccountSeeder` seeds four accounts into `identity.accounts` with a BCrypt hash and lower-case e-mails (see [`DEVELOPMENT.md`](../../DEVELOPMENT.md)). Seeding into the in-memory `IAccountRepository` does not make login work. |
 | IDN-03 | Login reads the status from `identity.accounts`, while `PUT /api/admin/accounts/{id}/status` still changes the in-memory account. Until `IAccountRepository` is backed by the database, an account blocked through the endpoint can still log in. |
-| US-13 tests | Use `ISessionCreator` fake as in `Platform.Tests/Identity/LoginTests.cs`. |
+| US-13 tests | Use an `ISessionCreator` mock (Moq) as in `Platform.Tests/Identity/LoginTests.cs`. |
 
 ## Known limitations
 
-- No attempt limiting (IDN-05) and no CSRF token (US-15) yet. `LoginAccount` has a comment where the limiter would be called.
+- No attempt limiting (IDN-05) and no CSRF token (US-15) yet. `Login` has a comment where the limiter would be called.
 - No MFA: every successful login is `Active` until an MFA policy (IDN-06, US-12) exists.
 - No registration (IDN-01): accounts exist only through seeding or direct database work.
 - The login does not revoke a session that was sent with the request.
@@ -55,4 +55,4 @@ To create a hash for a seed user or a test: `new BCryptPasswordHasher().Hash(pas
 
 ## Tests
 
-`Platform.Tests/Identity/LoginTests.cs` (use case, controller, cookie flags, audit content), `StoreSessionCreatorTests.cs` (level mapping, database failure), `SessionStoreTests.cs` (hash only, revocation) and `PasswordAndCredentialTests.cs` (BCrypt, verifier). `Migrations_MatchTheModel` covers the migration.
+`Platform.Tests/Identity/LoginTests.cs` (login use case and audit content, collaborators replaced by Moq mocks), `StoreSessionCreatorTests.cs` (level mapping, database failure), `SessionStoreTests.cs` (hash only, revocation) and `PasswordAndCredentialTests.cs` (BCrypt, verifier with a mocked `ICredentialStore`). The controller, status codes and cookie flags are not covered by these unit tests; they belong to HTTP-level tests (US-13). `Migrations_MatchTheModel` covers the migration.

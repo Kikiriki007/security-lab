@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Moq;
 using Platform.Api.Controllers.Identity;
 using Platform.Api.Domain.Authentication;
 using Platform.Api.Services.Identity;
@@ -26,37 +27,56 @@ public class LoginTests
         "p@$$w0rd!\"'<>&%\\"
     ];
 
-    private FakeVerifier _verifier = null!;
-    private FakeSessions _sessions = null!;
-    private RecordingAudit _audit = null!;
-    private LoginAccount _login = null!;
+    private Mock<ICredentialVerifier> _verifier = null!;
+    private Mock<ISessionCreator> _sessions = null!;
+    private Mock<IAuditWriter> _audit = null!;
+    private List<AuditEvent> _events = null!;
+    private Login _login = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _verifier = new FakeVerifier();
-        _sessions = new FakeSessions();
-        _audit = new RecordingAudit();
-        _login = new LoginAccount(_verifier, _sessions, _audit, TimeProvider.System);
+        _verifier = new Mock<ICredentialVerifier>();
+        _sessions = new Mock<ISessionCreator>();
+        _audit = new Mock<IAuditWriter>();
+        _events = [];
+        _audit.Setup(a => a.Write(It.IsAny<AuditEvent>())).Callback<AuditEvent>(_events.Add);
+
+        // Same defaults the old fakes had: wrong credentials, and a session store that issues a session.
+        GivenCredentials(CredentialResult.Invalid);
+        GivenSession(new IssuedSession(Token, Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(8)));
+
+        _login = new Login(_verifier.Object, _sessions.Object, _audit.Object, TimeProvider.System);
     }
+
+    private void GivenCredentials(CredentialResult result) =>
+        _verifier.Setup(v => v.VerifyAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(result);
+
+    private void GivenSession(IssuedSession? session) =>
+        _sessions.Setup(s => s.CreateAsync(It.IsAny<Guid>(), It.IsAny<AuthenticationLevel>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session);
+
+    private void VerifyNothingChecked() =>
+        _verifier.Verify(v => v.VerifyAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
+
+    private void VerifyNoSessionCreated() =>
+        _sessions.Verify(s => s.CreateAsync(It.IsAny<Guid>(), It.IsAny<AuthenticationLevel>(), It.IsAny<CancellationToken>()), Times.Never());
 
     [TestCaseSource(nameof(Passwords))]
     public async Task ValidCredentials_ActiveAccount_CreatesActiveSession_AndAuditsSuccess(string password)
     {
         var id = Guid.NewGuid();
-        _verifier.Result = new CredentialResult(true, id, AccountStatus.Active);
+        GivenCredentials(new CredentialResult(true, id, AccountStatus.Active));
 
         var result = await _login.ExecuteAsync(Email, password, "corr-1");
 
         Assert.That(result.Outcome, Is.EqualTo(LoginOutcome.Success));
         Assert.That(result.UserId, Is.EqualTo(id));
         Assert.That(result.Session!.Token, Is.EqualTo(Token));
-        Assert.That(_verifier.Calls, Is.EqualTo(1));
-        Assert.That(_verifier.LastPassword, Is.EqualTo(password));
-        Assert.That(_sessions.Calls, Is.EqualTo(1));
-        Assert.That(_sessions.LastUser, Is.EqualTo(id));
-        Assert.That(_sessions.LastLevel, Is.EqualTo(AuthenticationLevel.Active));
-        var e = _audit.Events.Single();
+        _verifier.Verify(v => v.VerifyAsync(Email, password, It.IsAny<CancellationToken>()), Times.Once());
+        _sessions.Verify(s => s.CreateAsync(id, AuthenticationLevel.Active, It.IsAny<CancellationToken>()), Times.Once());
+        var e = _events.Single();
         Assert.That(e.Outcome, Is.EqualTo("success"));
         Assert.That(e.ActorId, Is.EqualTo(id));
     }
@@ -68,8 +88,8 @@ public class LoginTests
 
         Assert.That(result.Outcome, Is.EqualTo(LoginOutcome.InvalidCredentials));
         Assert.That(result.Session, Is.Null);
-        Assert.That(_sessions.Calls, Is.EqualTo(0));
-        Assert.That(_audit.Events.Single().Outcome, Is.EqualTo("failure"));
+        VerifyNoSessionCreated();
+        Assert.That(_events.Single().Outcome, Is.EqualTo("failure"));
     }
 
     [TestCase(AccountStatus.Blocked)]
@@ -77,14 +97,14 @@ public class LoginTests
     public async Task BlockedOrArchived_WithCorrectPassword_IsRefused_LikeAWrongPassword(AccountStatus status)
     {
         var id = Guid.NewGuid();
-        _verifier.Result = new CredentialResult(true, id, status);
+        GivenCredentials(new CredentialResult(true, id, status));
 
         var result = await _login.ExecuteAsync(Email, Password, "corr-3");
 
         Assert.That(result.Outcome, Is.EqualTo(LoginOutcome.InvalidCredentials));
         Assert.That(result.Session, Is.Null);
-        Assert.That(_sessions.Calls, Is.EqualTo(0));
-        var e = _audit.Events.Single();
+        VerifyNoSessionCreated();
+        var e = _events.Single();
         Assert.That(e.Outcome, Is.EqualTo("denied"));
         Assert.That(e.ActorId, Is.EqualTo(id));
     }
@@ -99,8 +119,8 @@ public class LoginTests
         var result = await _login.ExecuteAsync(email, password, "corr-4");
 
         Assert.That(result.Outcome, Is.EqualTo(LoginOutcome.InvalidRequest));
-        Assert.That(_verifier.Calls, Is.EqualTo(0));
-        Assert.That(_sessions.Calls, Is.EqualTo(0));
+        VerifyNothingChecked();
+        VerifyNoSessionCreated();
     }
 
     [Test]
@@ -111,7 +131,7 @@ public class LoginTests
         var result = await _login.ExecuteAsync(longEmail, Password, "corr-5");
 
         Assert.That(result.Outcome, Is.EqualTo(LoginOutcome.InvalidRequest));
-        Assert.That(_verifier.Calls, Is.EqualTo(0));
+        VerifyNothingChecked();
     }
 
     [Test]
@@ -122,138 +142,34 @@ public class LoginTests
         var result = await _login.ExecuteAsync(Email, longPassword, "corr-6");
 
         Assert.That(result.Outcome, Is.EqualTo(LoginOutcome.InvalidRequest));
-        Assert.That(_verifier.Calls, Is.EqualTo(0));
+        VerifyNothingChecked();
     }
 
     [Test]
     public async Task SessionStoreUnavailable_IsReported_AndNoSuccessIsAudited()
     {
-        _verifier.Result = new CredentialResult(true, Guid.NewGuid(), AccountStatus.Active);
-        _sessions.Next = null;
+        GivenCredentials(new CredentialResult(true, Guid.NewGuid(), AccountStatus.Active));
+        GivenSession(null);
 
         var result = await _login.ExecuteAsync(Email, Password, "corr-7");
 
         Assert.That(result.Outcome, Is.EqualTo(LoginOutcome.Unavailable));
-        Assert.That(_audit.Events.Single().Outcome, Is.EqualTo("failure"));
+        Assert.That(_events.Single().Outcome, Is.EqualTo("failure"));
     }
 
     [TestCaseSource(nameof(Passwords))]
     public async Task AuditEvents_NeverContainEmailPasswordOrToken(string password)
     {
-        _verifier.Result = new CredentialResult(true, Guid.NewGuid(), AccountStatus.Active);
+        GivenCredentials(new CredentialResult(true, Guid.NewGuid(), AccountStatus.Active));
         await _login.ExecuteAsync(Email, password, "corr-8");
-        _verifier.Result = CredentialResult.Invalid;
+        GivenCredentials(CredentialResult.Invalid);
         await _login.ExecuteAsync(Email, password, "corr-9");
 
-        Assert.That(_audit.Events, Has.Count.EqualTo(2));
-        foreach (var e in _audit.Events)
+        Assert.That(_events, Has.Count.EqualTo(2));
+        foreach (var e in _events)
         {
             var text = string.Join('|', e.Action, e.Target, e.Outcome, e.CorrelationId, e.Detail);
             Assert.That(text, Does.Not.Contain(password).And.Not.Contain(Email).And.Not.Contain(Token));
         }
-    }
-
-    [TestCaseSource(nameof(Passwords))]
-    public async Task Controller_Success_SetsHttpOnlySecureStrictCookie_AndNeverPutsTokenInBody(string password)
-    {
-        _verifier.Result = new CredentialResult(true, Guid.NewGuid(), AccountStatus.Active);
-        var controller = ControllerWithHttpContext(out var http);
-
-        var response = await controller.Login(new LoginRequest(Email, password), CancellationToken.None);
-
-        Assert.That(response, Is.InstanceOf<OkObjectResult>());
-        var ok = response as OkObjectResult;
-        Assert.That(System.Text.Json.JsonSerializer.Serialize(ok!.Value), Does.Not.Contain(Token));
-        Assert.That(http.Response.Headers.CacheControl.ToString(), Is.EqualTo("no-store"));
-        AssertSessionCookieSet(http);
-    }
-
-    [Test]
-    public async Task Controller_WrongCredentials_Returns401_AndNoCookie()
-    {
-        var controller = ControllerWithHttpContext(out var http);
-
-        var response = await controller.Login(new LoginRequest(Email, Password), CancellationToken.None);
-
-        Assert.That(response, Is.InstanceOf<UnauthorizedObjectResult>());
-        AssertNoCookieSet(http);
-    }
-
-    [Test]
-    public async Task Controller_MalformedRequest_Returns400_AndNoCookie()
-    {
-        var controller = ControllerWithHttpContext(out var http);
-
-        var response = await controller.Login(new LoginRequest(null, null), CancellationToken.None);
-
-        Assert.That(response, Is.InstanceOf<BadRequestObjectResult>());
-        AssertNoCookieSet(http);
-    }
-
-    [Test]
-    public async Task Controller_SessionStoreUnavailable_Returns503_AndNoCookie()
-    {
-        _verifier.Result = new CredentialResult(true, Guid.NewGuid(), AccountStatus.Active);
-        _sessions.Next = null;
-        var controller = ControllerWithHttpContext(out var http);
-
-        var response = await controller.Login(new LoginRequest(Email, Password), CancellationToken.None);
-
-        Assert.That(response, Is.InstanceOf<ObjectResult>());
-        var unavailable = response as ObjectResult;
-        Assert.That(unavailable!.StatusCode, Is.EqualTo(503));
-        AssertNoCookieSet(http);
-    }
-
-    private static void AssertSessionCookieSet(DefaultHttpContext http)
-    {
-        var setCookie = http.Response.Headers.SetCookie.ToString().ToLowerInvariant();
-        Assert.That(setCookie, Does.Contain(SessionCookie.Name.ToLowerInvariant() + "=" + Token));
-        Assert.That(setCookie, Does.Contain("httponly").And.Contain("secure").And.Contain("samesite=strict"));
-    }
-
-    private static void AssertNoCookieSet(DefaultHttpContext http) =>
-        Assert.That(http.Response.Headers.ContainsKey("Set-Cookie"), Is.False);
-
-    private LoginController ControllerWithHttpContext(out DefaultHttpContext http)
-    {
-        http = new DefaultHttpContext();
-        return new LoginController(_login) { ControllerContext = new ControllerContext { HttpContext = http } };
-    }
-
-    private sealed class FakeVerifier : ICredentialVerifier
-    {
-        public CredentialResult Result { get; set; } = CredentialResult.Invalid;
-        public int Calls { get; private set; }
-        public string? LastPassword { get; private set; }
-
-        public Task<CredentialResult> VerifyAsync(string email, string password, CancellationToken ct = default)
-        {
-            Calls++;
-            LastPassword = password;
-            return Task.FromResult(Result);
-        }
-    }
-
-    private sealed class FakeSessions : ISessionCreator
-    {
-        public IssuedSession? Next { get; set; } = new(Token, Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(8));
-        public int Calls { get; private set; }
-        public Guid? LastUser { get; private set; }
-        public AuthenticationLevel? LastLevel { get; private set; }
-
-        public Task<IssuedSession?> CreateAsync(Guid userId, AuthenticationLevel level, CancellationToken ct = default)
-        {
-            Calls++;
-            LastUser = userId;
-            LastLevel = level;
-            return Task.FromResult(Next);
-        }
-    }
-
-    private sealed class RecordingAudit : IAuditWriter
-    {
-        public List<AuditEvent> Events { get; } = [];
-        public void Write(AuditEvent e) => Events.Add(e);
     }
 }

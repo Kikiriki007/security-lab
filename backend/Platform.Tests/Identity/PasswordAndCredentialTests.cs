@@ -1,3 +1,4 @@
+using Moq;
 using Platform.Identity.Domain;
 using Platform.Identity.Services;
 
@@ -61,13 +62,14 @@ public class PasswordAndCredentialTests
     public async Task Verifier_AcceptsCorrectCredentials_WithEmailNormalization(string password)
     {
         var id = Guid.NewGuid();
-        var verifier = VerifierWith(new CredentialRecord(id, AccountStatus.Active, _hasher.Hash(password)));
+        var verifier = VerifierWith(new CredentialRecord(id, AccountStatus.Active, _hasher.Hash(password)), out var store);
 
         var result = await verifier.VerifyAsync("  Student@Example.COM ", password);
 
         Assert.That(result.IsValid, Is.True);
         Assert.That(result.AccountId, Is.EqualTo(id));
         Assert.That(result.Status, Is.EqualTo(AccountStatus.Active));
+        store.Verify(s => s.FindByEmailAsync("student@example.com", It.IsAny<CancellationToken>()), Times.Once());
     }
 
     [TestCaseSource(nameof(Passwords))]
@@ -93,11 +95,14 @@ public class PasswordAndCredentialTests
         Assert.That((await empty.VerifyAsync("nobody@example.com", Password)).IsValid, Is.False);
     }
 
-    private CredentialVerifier VerifierWith(CredentialRecord? record) => new(new FakeStore(record), _hasher);
+    private CredentialVerifier VerifierWith(CredentialRecord? record) => VerifierWith(record, out _);
 
-    private sealed class FakeStore(CredentialRecord? record) : ICredentialStore
+    // The store answers only for the normalized e-mail "student@example.com"; any other lookup returns null.
+    private CredentialVerifier VerifierWith(CredentialRecord? record, out Mock<ICredentialStore> store)
     {
-        public Task<CredentialRecord?> FindByEmailAsync(string normalizedEmail, CancellationToken ct = default) =>
-            Task.FromResult(normalizedEmail == "student@example.com" ? record : null);
+        store = new Mock<ICredentialStore>();
+        store.Setup(s => s.FindByEmailAsync("student@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(record);
+        return new CredentialVerifier(store.Object, _hasher);
     }
 }

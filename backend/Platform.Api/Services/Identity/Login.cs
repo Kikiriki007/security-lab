@@ -18,7 +18,7 @@ public sealed record LoginResult(LoginOutcome Outcome, Guid? UserId = null, Issu
 /// US-04: e-mail + password login (DFD process P1). Unknown e-mail, wrong password, missing hash and
 /// blocked/archived accounts all return the same InvalidCredentials; only the audit event tells them apart.
 /// </summary>
-public sealed class LoginAccount(
+public sealed class Login(
     ICredentialVerifier credentials,
     ISessionCreator sessions,
     IAuditWriter audit,

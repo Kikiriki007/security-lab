@@ -29,7 +29,7 @@ builder.Services.AddSingleton<IAuditWriter, LoggerAuditWriter>();
 builder.Services.AddSingleton<IAdminDirectory, ConfigAdminDirectory>();
 builder.Services.AddSingleton<IAccessDecision, AdminOnlyAccessDecision>();
 builder.Services.AddScoped<ChangeAccountStatus>();
-builder.Services.AddScoped<LoginAccount>();
+builder.Services.AddScoped<Login>();
 builder.Services.AddScoped<LogoutAccount>();
 builder.Services.AddScoped<ISessionCreator, StoreSessionCreator>();
 
