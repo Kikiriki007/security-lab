@@ -13,7 +13,8 @@ public static class IdentityServiceCollectionExtensions
     {
         services.AddDbContext<AccountDbContext>((sp, options) =>
             options.UseNpgsql(
-                sp.GetRequiredService<IConfiguration>().GetConnectionString("Identity")));
+                sp.GetRequiredService<IConfiguration>().GetConnectionString("Identity"),
+                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
 
         services.AddIdentityCore<AppUser>(options =>
             {
