@@ -67,17 +67,20 @@ Keep the following in mind:
 
 ## Development accounts (US-09)
 
-In the Development environment the API seeds four accounts in `identity.accounts` when both the identity connection string and a seed password are set: `admin@example.com`, `teacher@example.com`, `student@example.com` and `blocked@example.com` (status Blocked). All use the reserved `example.com` domain.
+In the Development environment the API seeds four accounts in `identity.accounts` when both the identity connection string and seed password are set. All use the reserved `example.com` domain:
 
-The password is `Seed__DevelopmentPassword` in your local `.env`, is limited to 128 characters, and is stored only as a BCrypt hash. The repository's `.env.example` contains a placeholder, not a real password.
+| Email | Role | Status |
+|---|---|---|
+| `admin@example.com` | Administrator | Active |
+| `student@example.com` | Student | Active |
+| `teacher@example.com` | Teacher | Active |
+| `blocked@example.com` | Student | Blocked |
 
-Behaviour:
+Set `Seed__DevelopmentPassword` in your local, git-ignored `.env` (or user-secrets). Replace the placeholder from `.env.example` locally; never commit the real value. The password is limited to 128 characters and is stored only as a BCrypt hash.
 
-- All four accounts share this password.
-- The seeder is idempotent: it adds missing accounts and sets a password only on accounts that have none. An existing hash is never overwritten.
-- Without the connection string or the password, or while the password starts with `CHANGE_ME` (case-insensitive), seeding is skipped and the API still starts.
-- It never runs outside the Development environment.
-- To change the password, delete the four accounts or run `scripts/reset-identity-db.ps1`, then start the API again.
-- Roles (admin, teacher, student) are not stored because the account model has no role.
+- Seeding is idempotent: missing accounts are added; seed account status and role are reapplied on every start. Existing password hashes are never overwritten, and a hash is set only when it is missing.
+- Without the identity connection string or seed password, seeding is skipped and the API still starts.
+- Seeding never runs outside the Development environment.
+- To change the password, delete the four accounts or run `scripts/reset-identity-db.ps1`, then start the API again. Existing hashes are intentionally preserved otherwise.
 
-Test helper: `TestUsers.Create(accounts, role, status, password)` creates a user in the in-memory repository. `TestUsers.CreateAsync(context, role, status, password)` saves a user in the identity database for login-related tests. `TestUsers.AdminConfiguration(users)` returns the `Stub:AdminIds` configuration needed to make test users with the Administrator role count as admins. Role is not persisted; only Administrator has an effect through this configuration.
+For tests, `TestUsers.Create(accounts, role, status, password)` creates a user in the in-memory account repository. `TestUsers.CreateAsync(context, role, status, password)` saves a user in the identity database used by credential verification and login tests. Without a password either helper creates an account with no hash, which cannot log in.

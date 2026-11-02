@@ -2,6 +2,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Platform.Identity\Platform.Identity.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Platform.Tests" />
+  </ItemGroup>
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

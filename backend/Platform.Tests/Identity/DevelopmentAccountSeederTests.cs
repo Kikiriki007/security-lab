@@ -1,9 +1,9 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Platform.Api.Services.Identity;
 using Platform.Identity;
 using Platform.Identity.Data;
@@ -25,7 +25,7 @@ public class DevelopmentAccountSeederTests
             DevelopmentAccountSeeder.All
                 .Where(account => account.Status == AccountStatus.Active)
                 .Select(account => account.Role),
-            Is.EquivalentTo(new[] { DevelopmentRole.Student, DevelopmentRole.Teacher, DevelopmentRole.Administrator }));
+            Is.EquivalentTo(new[] { AccountRole.Student, AccountRole.Teacher, AccountRole.Administrator }));
     }
 
     [Test]
@@ -56,97 +56,9 @@ public class DevelopmentAccountSeederTests
     }
 
     [Test]
-    public async Task UpsertAccountsAsync_AddsAllFourAccountsAndSetsTheirPasswords()
-    {
-        using var context = NewContext();
-        const string password = "seed-test-password";
-
-        var result = await DevelopmentAccountSeeder.UpsertAccountsAsync(
-            context, new BCryptPasswordHasher(), password);
-        var accounts = await context.Accounts.AsNoTracking().ToListAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Added, Is.EqualTo(4));
-            Assert.That(result.PasswordsSet, Is.EqualTo(4));
-            Assert.That(accounts.Select(account => account.Email),
-                Is.EquivalentTo(DevelopmentAccountSeeder.All.Select(account => account.Email)));
-            Assert.That(accounts.Count(account => account.Status == AccountStatus.Blocked), Is.EqualTo(1));
-            Assert.That(accounts, Has.All.Matches<UserAccount>(account =>
-                account.PasswordHash is not null &&
-                account.PasswordHash != password &&
-                new BCryptPasswordHasher().Verify(password, account.PasswordHash)));
-        });
-    }
-
-    [Test]
-    public async Task UpsertAccountsAsync_IsIdempotentAndDoesNotChangeHashes()
-    {
-        using var context = NewContext();
-        var hasher = new BCryptPasswordHasher();
-        await DevelopmentAccountSeeder.UpsertAccountsAsync(context, hasher, "seed-test-password");
-        var hashes = await context.Accounts.AsNoTracking()
-            .ToDictionaryAsync(account => account.Email, account => account.PasswordHash);
-
-        var result = await DevelopmentAccountSeeder.UpsertAccountsAsync(context, hasher, "another-password");
-        var accountCount = await context.Accounts.CountAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Added, Is.Zero);
-            Assert.That(result.PasswordsSet, Is.Zero);
-            Assert.That(accountCount, Is.EqualTo(4));
-            Assert.That(
-                context.Accounts.AsNoTracking().ToDictionary(account => account.Email, account => account.PasswordHash),
-                Is.EquivalentTo(hashes));
-        });
-    }
-
-    [Test]
-    public async Task UpsertAccountsAsync_DoesNotOverwriteAnExistingHash()
-    {
-        using var context = NewContext();
-        var definition = DevelopmentAccountSeeder.All[0];
-        var existingHash = new BCryptPasswordHasher().Hash("different-known-password");
-        var existing = new UserAccount(definition.Id, definition.Email, definition.Status);
-        existing.SetPasswordHash(existingHash);
-        context.Accounts.Add(existing);
-        await context.SaveChangesAsync();
-
-        var result = await DevelopmentAccountSeeder.UpsertAccountsAsync(
-            context, new BCryptPasswordHasher(), "seed-test-password");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.PasswordsSet, Is.EqualTo(3));
-            Assert.That(context.Accounts.Single(account => account.Id == definition.Id).PasswordHash,
-                Is.EqualTo(existingHash));
-        });
-    }
-
-    [Test]
-    public async Task UpsertAccountsAsync_FillsAnExistingMissingHash()
-    {
-        using var context = NewContext();
-        var definition = DevelopmentAccountSeeder.All[0];
-        context.Accounts.Add(new UserAccount(definition.Id, definition.Email, definition.Status));
-        await context.SaveChangesAsync();
-
-        var result = await DevelopmentAccountSeeder.UpsertAccountsAsync(
-            context, new BCryptPasswordHasher(), "seed-test-password");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Added, Is.EqualTo(3));
-            Assert.That(result.PasswordsSet, Is.EqualTo(4));
-            Assert.That(context.Accounts.Single(account => account.Id == definition.Id).PasswordHash, Is.Not.Null);
-        });
-    }
-
-    [Test]
     public void Administrator_UsesTheIdFromStubAdminIds()
     {
-        var administrator = DevelopmentAccountSeeder.All.Single(account => account.Role == DevelopmentRole.Administrator);
+        var administrator = DevelopmentAccountSeeder.All.Single(account => account.Role == AccountRole.Administrator);
         Assert.That(administrator.Id, Is.EqualTo(DevelopmentAccountSeeder.AdminId));
 
         var settingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.Development.json");
@@ -198,21 +110,6 @@ public class DevelopmentAccountSeederTests
                 context, new ThrowingHasher(), "   ", EnvironmentNamed(Environments.Development)));
     }
 
-    [TestCase(DevelopmentAccountSeeder.PlaceholderPassword)]
-    [TestCase("change_me_anything")]
-    public void SeedAsync_RejectsPlaceholderPassword_BeforeTouchingTheDatabase(string password)
-    {
-        using var provider = BuildProvider();
-        using var scope = provider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<PlatformIdentityDbContext>();
-
-        var exception = Assert.ThrowsAsync<ArgumentException>(
-            () => DevelopmentAccountSeeder.SeedAsync(
-                context, new ThrowingHasher(), password, EnvironmentNamed(Environments.Development)));
-
-        Assert.That(exception!.ParamName, Is.EqualTo("password"));
-    }
-
     [Test]
     public void SeedAsync_RejectsPasswordThatLoginWouldRefuse()
     {
@@ -226,16 +123,120 @@ public class DevelopmentAccountSeederTests
                 context, new ThrowingHasher(), password, EnvironmentNamed(Environments.Development)));
     }
 
-    private static IHostEnvironment EnvironmentNamed(string name) =>
-        WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = name }).Environment;
+    [Test]
+    public async Task SeedAsync_CreatesAllFourAccounts_WithExpectedRoleAndStatus()
+    {
+        await using var context = InMemoryContext();
 
-    private static PlatformIdentityDbContext NewContext()
+        var result = await SeedAsync(context);
+
+        Assert.That(result.Added, Is.EqualTo(4));
+        Assert.That(result.Updated, Is.Zero);
+        var accounts = await context.Accounts.AsNoTracking().ToListAsync();
+        Assert.That(accounts, Has.Count.EqualTo(4));
+        foreach (var expected in DevelopmentAccountSeeder.All)
+        {
+            var actual = accounts.Single(account => account.Email == expected.Email);
+            Assert.That(actual.Id, Is.EqualTo(expected.Id));
+            Assert.That(actual.Role, Is.EqualTo(expected.Role));
+            Assert.That(actual.Status, Is.EqualTo(expected.Status));
+        }
+    }
+
+    [Test]
+    public async Task SeedAsync_IsIdempotent_SecondRunAddsNothingAndKeepsHashes()
+    {
+        await using var context = InMemoryContext();
+
+        var first = await SeedAsync(context);
+        var hashes = await context.Accounts.AsNoTracking()
+            .ToDictionaryAsync(account => account.Email, account => account.PasswordHash);
+        var second = await SeedAsync(context);
+
+        Assert.That(first.Added, Is.EqualTo(4));
+        Assert.That(second.Added, Is.Zero);
+        Assert.That(second.Updated, Is.Zero);
+        Assert.That(second.PasswordsSet, Is.Zero);
+        Assert.That(
+            await context.Accounts.AsNoTracking().ToDictionaryAsync(account => account.Email, account => account.PasswordHash),
+            Is.EqualTo(hashes));
+    }
+
+    [Test]
+    public async Task SeedAsync_StoresOnlyAHash_NotThePassword()
+    {
+        await using var context = InMemoryContext();
+        const string password = "seed-password-for-test";
+
+        await DevelopmentAccountSeeder.SeedWithoutMigrationCheckAsync(
+            context, new BCryptPasswordHasher(), password, EnvironmentNamed(Environments.Development));
+
+        var accounts = await context.Accounts.AsNoTracking().ToListAsync();
+        Assert.That(accounts, Has.Count.EqualTo(4));
+        Assert.That(accounts, Has.All.Matches<UserAccount>(account =>
+            account.PasswordHash is not null &&
+            account.PasswordHash != password &&
+            new BCryptPasswordHasher().Verify(password, account.PasswordHash)));
+    }
+
+    [Test]
+    public async Task SeedAsync_RestoresStatusAndRole_OfAnExistingSeedAccount()
+    {
+        await using var context = InMemoryContext();
+        await SeedAsync(context);
+        var blocked = await context.Accounts.SingleAsync(account => account.Email == "blocked@example.com");
+        var teacher = await context.Accounts.SingleAsync(account => account.Email == "teacher@example.com");
+        var hashes = new[] { blocked.PasswordHash, teacher.PasswordHash };
+        blocked.Status = AccountStatus.Active;
+        teacher.Role = AccountRole.Student;
+        await context.SaveChangesAsync();
+
+        var result = await SeedAsync(context);
+
+        Assert.That(result.Added, Is.Zero);
+        Assert.That(result.Updated, Is.EqualTo(2));
+        Assert.That(blocked.Status, Is.EqualTo(AccountStatus.Blocked));
+        Assert.That(teacher.Role, Is.EqualTo(AccountRole.Teacher));
+        Assert.That(new[] { blocked.PasswordHash, teacher.PasswordHash }, Is.EqualTo(hashes));
+    }
+
+    [Test]
+    public async Task SeedAsync_DoesNotTouchNonSeedAccounts()
+    {
+        await using var context = InMemoryContext();
+        var other = new UserAccount(
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            "other@example.com",
+            AccountStatus.Archived,
+            AccountRole.Teacher);
+        other.SetPasswordHash("existing-hash");
+        context.Accounts.Add(other);
+        await context.SaveChangesAsync();
+
+        var result = await SeedAsync(context);
+
+        Assert.That(result.Added, Is.EqualTo(4));
+        Assert.That(result.Updated, Is.Zero);
+        var saved = await context.Accounts.AsNoTracking().SingleAsync(account => account.Id == other.Id);
+        Assert.That(saved.Status, Is.EqualTo(AccountStatus.Archived));
+        Assert.That(saved.Role, Is.EqualTo(AccountRole.Teacher));
+        Assert.That(saved.PasswordHash, Is.EqualTo("existing-hash"));
+    }
+
+    private static Task<SeedResult> SeedAsync(PlatformIdentityDbContext context) =>
+        DevelopmentAccountSeeder.SeedWithoutMigrationCheckAsync(
+            context, new TestHasher(), "seed-password-for-test", EnvironmentNamed(Environments.Development));
+
+    private static PlatformIdentityDbContext InMemoryContext()
     {
         var options = new DbContextOptionsBuilder<PlatformIdentityDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         return new PlatformIdentityDbContext(options);
     }
+
+    private static IHostEnvironment EnvironmentNamed(string name) =>
+        WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = name }).Environment;
 
     private static ServiceProvider BuildProvider()
     {
@@ -255,5 +256,12 @@ public class DevelopmentAccountSeederTests
 
         public bool Verify(string password, string? passwordHash) =>
             throw new InvalidOperationException("Hasher must not be called.");
+    }
+
+    private sealed class TestHasher : IPasswordHasher
+    {
+        public string Hash(string password) => $"test-hash:{password}";
+
+        public bool Verify(string password, string? passwordHash) => passwordHash == Hash(password);
     }
 }

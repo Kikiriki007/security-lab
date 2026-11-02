@@ -44,7 +44,6 @@ if (accessDemoEnabled)
     app.MapAccessKt1Demo();
 }
 
-// Probni nalozi samo za lokalni razvoj (izmišljeni domen example.com).
 if (app.Environment.IsDevelopment())
 {
     var repo = app.Services.GetRequiredService<IAccountRepository>();

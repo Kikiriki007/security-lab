@@ -6,33 +6,23 @@ using Platform.Identity.Services;
 
 namespace Platform.Api.Services.Identity;
 
-/// <summary>The account model has no role yet, so this role only describes the account and is not persisted.</summary>
-// TODO(IDN-01): when the account model gets a role, persist it here and in DevelopmentAccountSeeder.
-public enum DevelopmentRole
-{
-    Student,
-    Teacher,
-    Administrator
-}
-
-public sealed record DevelopmentAccount(Guid Id, string Email, DevelopmentRole Role, AccountStatus Status);
-public sealed record SeedResult(int Added, int PasswordsSet);
+public sealed record DevelopmentAccount(Guid Id, string Email, AccountRole Role, AccountStatus Status);
+public sealed record SeedResult(int Added, int Updated, int PasswordsSet);
 
 public static class DevelopmentAccountSeeder
 {
     // Set as Seed__DevelopmentPassword in the local .env, see docs/DEVELOPMENT.md.
     public const string PasswordConfigKey = "Seed:DevelopmentPassword";
-    public const string PlaceholderPassword = "CHANGE_ME_FOR_LOCAL_DEVELOPMENT";
 
     // Must match Stub:AdminIds in appsettings.Development.json.
     public static readonly Guid AdminId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     public static IReadOnlyList<DevelopmentAccount> All { get; } =
     [
-        new DevelopmentAccount(AdminId, "admin@example.com", DevelopmentRole.Administrator, AccountStatus.Active),
-        new DevelopmentAccount(Guid.Parse("22222222-2222-2222-2222-222222222222"), "student@example.com", DevelopmentRole.Student, AccountStatus.Active),
-        new DevelopmentAccount(Guid.Parse("44444444-4444-4444-4444-444444444444"), "teacher@example.com", DevelopmentRole.Teacher, AccountStatus.Active),
-        new DevelopmentAccount(Guid.Parse("55555555-5555-5555-5555-555555555555"), "blocked@example.com", DevelopmentRole.Student, AccountStatus.Blocked)
+        new DevelopmentAccount(AdminId, "admin@example.com", AccountRole.Administrator, AccountStatus.Active),
+        new DevelopmentAccount(Guid.Parse("22222222-2222-2222-2222-222222222222"), "student@example.com", AccountRole.Student, AccountStatus.Active),
+        new DevelopmentAccount(Guid.Parse("44444444-4444-4444-4444-444444444444"), "teacher@example.com", AccountRole.Teacher, AccountStatus.Active),
+        new DevelopmentAccount(Guid.Parse("55555555-5555-5555-5555-555555555555"), "blocked@example.com", AccountRole.Student, AccountStatus.Blocked)
     ];
 
     // BCrypt hashing of four accounts takes a few hundred milliseconds each.
@@ -59,13 +49,6 @@ public static class DevelopmentAccountSeeder
             return;
         }
 
-        if (password.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
-        {
-            logger.LogWarning(
-                "The development seed password is still the placeholder; development accounts are skipped. See docs/DEVELOPMENT.md.");
-            return;
-        }
-
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -76,14 +59,14 @@ public static class DevelopmentAccountSeeder
             var result = await SeedAsync(context, hasher, password, app.Environment, timeout.Token);
 
             logger.LogInformation(
-                "Development accounts: {Added} added, {PasswordsSet} passwords set, {Total} defined.",
-                result.Added, result.PasswordsSet, All.Count);
+                "Development accounts: {Added} added, {Updated} updated, {PasswordsSet} passwords set, {Total} defined.",
+                result.Added, result.Updated, result.PasswordsSet, All.Count);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(
-                "Development accounts were not seeded: {Message} Is the database running and migrated? See docs/DEVELOPMENT.md.",
-                ex.Message);
+                "Development accounts were not seeded ({ExceptionType}). Is the database running and migrated? See docs/DEVELOPMENT.md.",
+                ex.GetType().Name);
         }
     }
 
@@ -95,42 +78,46 @@ public static class DevelopmentAccountSeeder
         CancellationToken ct = default)
     {
         RequireDevelopment(environment);
-
-        ArgumentException.ThrowIfNullOrWhiteSpace(password);
-        if (password.Length > CredentialVerifier.MaxPasswordLength)
-            throw new ArgumentException(
-                $"Password must be no more than {CredentialVerifier.MaxPasswordLength} characters.",
-                nameof(password));
-        if (password.StartsWith("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("The development seed password must not be a placeholder.", nameof(password));
+        ValidatePassword(password);
 
         if ((await context.Database.GetPendingMigrationsAsync(ct)).Any())
             throw new InvalidOperationException("Identity migrations are not applied. Run 'dotnet ef database update' first.");
 
-        return await UpsertAccountsAsync(context, hasher, password, ct);
+        return await SeedWithoutMigrationCheckAsync(context, hasher, password, environment, ct);
     }
 
-    public static async Task<SeedResult> UpsertAccountsAsync(
+    internal static async Task<SeedResult> SeedWithoutMigrationCheckAsync(
         PlatformIdentityDbContext context,
         IPasswordHasher hasher,
         string password,
+        IHostEnvironment environment,
         CancellationToken ct = default)
     {
+        RequireDevelopment(environment);
+        ValidatePassword(password);
+
         var emails = All.Select(account => account.Email).ToArray();
         var accounts = await context.Accounts
             .Where(account => emails.Contains(account.Email))
             .ToDictionaryAsync(account => account.Email, StringComparer.Ordinal, ct);
         var added = 0;
+        var updated = 0;
         var passwordsSet = 0;
 
         foreach (var definition in All)
         {
             if (!accounts.TryGetValue(definition.Email, out var account))
             {
-                account = new UserAccount(definition.Id, definition.Email, definition.Status);
+                account = new UserAccount(definition.Id, definition.Email, definition.Status, definition.Role);
                 context.Accounts.Add(account);
                 accounts.Add(definition.Email, account);
                 added++;
+            }
+            else if (account.Status != definition.Status || account.Role != definition.Role)
+            {
+                account.Status = definition.Status;
+                account.Role = definition.Role;
+                updated++;
             }
 
             if (account.PasswordHash is null)
@@ -141,12 +128,21 @@ public static class DevelopmentAccountSeeder
         }
 
         await context.SaveChangesAsync(ct);
-        return new SeedResult(added, passwordsSet);
+        return new SeedResult(added, updated, passwordsSet);
     }
 
     public static void RequireDevelopment(IHostEnvironment environment)
     {
         if (!environment.IsDevelopment())
             throw new InvalidOperationException("Development accounts are seeded only in the Development environment.");
+    }
+
+    private static void ValidatePassword(string password)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        if (password.Length > CredentialVerifier.MaxPasswordLength)
+            throw new ArgumentException(
+                $"Password must be no more than {CredentialVerifier.MaxPasswordLength} characters.",
+                nameof(password));
     }
 }

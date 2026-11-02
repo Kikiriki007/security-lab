@@ -1,13 +1,8 @@
-using Platform.Api.Services.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Platform.Identity.Domain;
-using Platform.Identity;
+using Platform.Api.Services.Identity;
 using Platform.Identity.Data;
+using Platform.Identity.Domain;
 using Platform.Identity.Services;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Platform.Tests.Identity;
 
@@ -28,16 +23,16 @@ public class TestUsersTests
     {
         var user = TestUsers.Create(_accounts);
 
-        Assert.That(user.Role, Is.EqualTo(DevelopmentRole.Student));
+        Assert.That(user.Role, Is.EqualTo(AccountRole.Student));
         Assert.That(user.Status, Is.EqualTo(AccountStatus.Active));
     }
 
-    [TestCase(DevelopmentRole.Student, AccountStatus.Active)]
-    [TestCase(DevelopmentRole.Teacher, AccountStatus.Active)]
-    [TestCase(DevelopmentRole.Administrator, AccountStatus.Active)]
-    [TestCase(DevelopmentRole.Student, AccountStatus.Blocked)]
-    [TestCase(DevelopmentRole.Teacher, AccountStatus.Archived)]
-    public void Create_UsesRequestedRoleAndStatus(DevelopmentRole role, AccountStatus status)
+    [TestCase(AccountRole.Student, AccountStatus.Active)]
+    [TestCase(AccountRole.Teacher, AccountStatus.Active)]
+    [TestCase(AccountRole.Administrator, AccountStatus.Active)]
+    [TestCase(AccountRole.Student, AccountStatus.Blocked)]
+    [TestCase(AccountRole.Teacher, AccountStatus.Archived)]
+    public void Create_UsesRequestedRoleAndStatus(AccountRole role, AccountStatus status)
     {
         var user = TestUsers.Create(_accounts, role, status);
 
@@ -104,86 +99,52 @@ public class TestUsersTests
     }
 
     [Test]
-    public async Task CreateAsync_PersistsRequestedStatusEmailAndVerifiablePasswordHash()
+    public async Task CreateAsync_SavesAccountWithRoleStatusAndHash_ToTheDatabase()
     {
-        using var context = NewContext();
-        const string password = "database-test-password";
+        await using var context = InMemoryContext();
+        const string password = "pass-for-database-tests";
 
         var user = await TestUsers.CreateAsync(
-            context, DevelopmentRole.Teacher, AccountStatus.Blocked, password);
+            context, AccountRole.Teacher, AccountStatus.Blocked, password);
         var saved = await context.Accounts.AsNoTracking().SingleAsync(account => account.Id == user.Id);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(saved.Email, Is.EqualTo(user.Email));
-            Assert.That(saved.Status, Is.EqualTo(AccountStatus.Blocked));
-            Assert.That(saved.PasswordHash, Is.Not.Null.And.Not.EqualTo(password));
-            Assert.That(new BCryptPasswordHasher().Verify(password, saved.PasswordHash), Is.True);
-        });
+        Assert.That(saved.Role, Is.EqualTo(AccountRole.Teacher));
+        Assert.That(saved.Status, Is.EqualTo(AccountStatus.Blocked));
+        Assert.That(saved.PasswordHash, Is.Not.Null.And.Not.EqualTo(password));
+        Assert.That(new BCryptPasswordHasher().Verify(password, saved.PasswordHash!), Is.True);
+    }
+
+    [TestCase(AccountStatus.Active)]
+    [TestCase(AccountStatus.Blocked)]
+    [TestCase(AccountStatus.Archived)]
+    public async Task CreateAsync_UserWithPassword_CanBeVerifiedByCredentialVerifier(AccountStatus status)
+    {
+        await using var context = InMemoryContext();
+        const string password = "pass-for-login-tests";
+        var user = await TestUsers.CreateAsync(context, status: status, password: password);
+        var verifier = new CredentialVerifier(new EfCredentialStore(context), new BCryptPasswordHasher());
+
+        var result = await verifier.VerifyAsync(user.Email, password);
+
+        Assert.That(result.IsValid, Is.True);
+        Assert.That(result.AccountId, Is.EqualTo(user.Id));
+        Assert.That(result.Status, Is.EqualTo(status));
     }
 
     [Test]
-    public async Task CreateAsync_WithoutPasswordLeavesPasswordHashNull()
+    public async Task CreateAsync_WithoutPassword_CannotLogIn()
     {
-        using var context = NewContext();
-
+        await using var context = InMemoryContext();
         var user = await TestUsers.CreateAsync(context);
-        var saved = await context.Accounts.AsNoTracking().SingleAsync(account => account.Id == user.Id);
+        var verifier = new CredentialVerifier(new EfCredentialStore(context), new BCryptPasswordHasher());
 
-        Assert.That(saved.PasswordHash, Is.Null);
+        var result = await verifier.VerifyAsync(user.Email, "any-password");
+
+        Assert.That(user.Account.PasswordHash, Is.Null);
+        Assert.That(result.IsValid, Is.False);
     }
 
-    [Test]
-    public void AdminConfiguration_ContainsOnlyAdministratorIds_AndEmptyWhenThereAreNone()
-    {
-        var student = TestUsers.Build(DevelopmentRole.Student);
-        var teacher = TestUsers.Build(DevelopmentRole.Teacher);
-        var administrator = TestUsers.Build(DevelopmentRole.Administrator);
-
-        var configuration = TestUsers.AdminConfiguration(student, administrator, teacher);
-        var noAdministrators = TestUsers.AdminConfiguration(student, teacher);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(configuration["Stub:AdminIds"], Is.EqualTo(administrator.Id.ToString()));
-            Assert.That(noAdministrators["Stub:AdminIds"], Is.Empty);
-        });
-    }
-
-    [Test]
-    public async Task CreateAsync_AccountsAreVerifiedThroughTheIdentityModuleCredentialVerifier()
-    {
-        var services = new ServiceCollection()
-            .AddIdentityModule(new ConfigurationBuilder().Build());
-        services.RemoveAll<IDbContextOptionsConfiguration<PlatformIdentityDbContext>>();
-        services.RemoveAll<DbContextOptions<PlatformIdentityDbContext>>();
-        services.RemoveAll<PlatformIdentityDbContext>();
-        services.AddDbContext<PlatformIdentityDbContext>(options =>
-            options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<PlatformIdentityDbContext>();
-        var verifier = scope.ServiceProvider.GetRequiredService<ICredentialVerifier>();
-        const string password = "login-test-password";
-
-        var active = await TestUsers.CreateAsync(
-            context, status: AccountStatus.Active, password: password);
-        var blocked = await TestUsers.CreateAsync(
-            context, status: AccountStatus.Blocked, password: password);
-
-        var activeResult = await verifier.VerifyAsync(active.Email, password);
-        var blockedResult = await verifier.VerifyAsync(blocked.Email, password);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(activeResult.IsValid, Is.True);
-            Assert.That(activeResult.Status, Is.EqualTo(AccountStatus.Active));
-            Assert.That(blockedResult.IsValid, Is.True);
-            Assert.That(blockedResult.Status, Is.EqualTo(AccountStatus.Blocked));
-        });
-    }
-
-    private static PlatformIdentityDbContext NewContext()
+    private static PlatformIdentityDbContext InMemoryContext()
     {
         var options = new DbContextOptionsBuilder<PlatformIdentityDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())

@@ -75,6 +75,16 @@ public class IdentityModuleTests
     }
 
     [Test]
+    public void Role_IsStoredAsString_InAccountsTable()
+    {
+        var role = AccountEntity().FindProperty(nameof(UserAccount.Role))!;
+
+        Assert.That(role.GetColumnName(), Is.EqualTo("role"));
+        Assert.That(role.GetProviderClrType(), Is.EqualTo(typeof(string)));
+        Assert.That(role.IsNullable, Is.False);
+    }
+
+    [Test]
     public void PasswordHash_IsOptionalColumn()
     {
         var hash = AccountEntity().FindProperty(nameof(UserAccount.PasswordHash))!;

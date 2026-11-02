@@ -1,32 +1,26 @@
-using Platform.Api.Services.Identity;
 using Platform.Identity.Data;
 using Platform.Identity.Domain;
 using Platform.Identity.Services;
-using Microsoft.EntityFrameworkCore;
+using Platform.Api.Services.Identity;
 
 namespace Platform.Tests.Identity;
 
-/// <summary>
-/// Role is NOT persisted because the account model has no role; only Administrator has an effect,
-/// and only through <see cref="TestUsers.AdminConfiguration"/>.
-/// </summary>
+/// <summary>A test account, with its plaintext password retained only for test login requests.</summary>
 /// <param name="Password">Plain text kept only so tests can log in; it is never persisted.</param>
-public sealed record TestUser(UserAccount Account, DevelopmentRole Role, string? Password = null)
+public sealed record TestUser(UserAccount Account, string? Password = null)
 {
     public Guid Id => Account.Id;
     public string Email => Account.Email;
     public AccountStatus Status => Account.Status;
+    public AccountRole Role => Account.Role;
 }
 
-/// <summary>
-/// Test user helpers. Role is NOT persisted because the account model has no role; only Administrator
-/// has an effect, and only through the configuration returned by <see cref="AdminConfiguration"/>.
-/// </summary>
 public static class TestUsers
 {
+    /// <summary>Creates a user in the in-memory account repository used by repository-backed tests.</summary>
     public static TestUser Create(
         IAccountRepository accounts,
-        DevelopmentRole role = DevelopmentRole.Student,
+        AccountRole role = AccountRole.Student,
         AccountStatus status = AccountStatus.Active,
         string? password = null,
         IPasswordHasher? hasher = null)
@@ -36,9 +30,10 @@ public static class TestUsers
         return user;
     }
 
+    /// <summary>Creates a user in the identity database used by credential verification and login tests.</summary>
     public static async Task<TestUser> CreateAsync(
         PlatformIdentityDbContext context,
-        DevelopmentRole role = DevelopmentRole.Student,
+        AccountRole role = AccountRole.Student,
         AccountStatus status = AccountStatus.Active,
         string? password = null,
         IPasswordHasher? hasher = null,
@@ -50,27 +45,18 @@ public static class TestUsers
         return user;
     }
 
-    public static IReadOnlyDictionary<string, string?> AdminConfiguration(params TestUser[] users) =>
-        new Dictionary<string, string?>
-        {
-            ["Stub:AdminIds"] = string.Join(
-                ',',
-                users.Where(user => user.Role == DevelopmentRole.Administrator)
-                    .Select(user => user.Id))
-        };
-
     public static TestUser Build(
-        DevelopmentRole role = DevelopmentRole.Student,
+        AccountRole role = AccountRole.Student,
         AccountStatus status = AccountStatus.Active,
         string? password = null,
         IPasswordHasher? hasher = null)
     {
         var id = Guid.NewGuid();
         var email = $"{role.ToString().ToLowerInvariant()}-{id:N}@example.com";
-        var account = new UserAccount(id, email, status);
+        var account = new UserAccount(id, email, status, role);
         if (password is not null)
             account.SetPasswordHash((hasher ?? new BCryptPasswordHasher()).Hash(password));
 
-        return new TestUser(account, role, password);
+        return new TestUser(account, password);
     }
 }
