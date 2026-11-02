@@ -1,6 +1,6 @@
 # IDN-02 Logout (US-05)
 
-**Team:** 1 (IDN-02). **Specification requirements:** IDN-02, SEC-03, AUD-01, AUD-03, AUD-04. Data flow: process P4 in `docs/IDN-02_IDN-06_DFD.md`.
+**Team:** 1 (IDN-02). **Specification requirements:** IDN-02, SEC-03, AUD-01, AUD-03, AUD-04. Data flow: process P4 in [`IDN-02_IDN-06_DFD.md`](./IDN-02_IDN-06_DFD.md).
 
 ## Endpoint
 

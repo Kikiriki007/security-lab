@@ -89,11 +89,11 @@ Legend: circle = process, rectangle = external actor or module, cylinder = data 
 
 | ID | Process | Entry point | Status |
 |-|-|-|-|
-| P1 | Login | `POST /api/auth/login` (US-04) | implemented, see `docs/IDN-02_LOGIN.md` |
+| P1 | Login | `POST /api/auth/login` (US-04) | implemented, see [`IDN-02_LOGIN.md`](./IDN-02_LOGIN.md) |
 | P2 | MFA verify | `POST /api/auth/mfa/verify` (proposed name, US-18) | planned |
 | P5 | MFA enroll | `POST /api/auth/mfa/enroll` and `POST /api/auth/mfa/enroll/confirm` (proposed names, US-17) | planned |
 | P3 | Session check | middleware on every protected request, `GET /api/auth/me` (US-06) | session check implemented (`SessionCheckMiddleware`). `GET /api/auth/me` planned |
-| P4 | Logout and revoke | `POST /api/auth/logout` (US-05), `ISessionManagement` (US-16) | logout implemented, see `docs/IDN-02_LOGOUT.md`. `ISessionManagement` planned |
+| P4 | Logout and revoke | `POST /api/auth/logout` (US-05), `ISessionManagement` (US-16) | logout implemented, see [`IDN-02_LOGOUT.md`](./IDN-02_LOGOUT.md). `ISessionManagement` planned |
 
 Process numbers follow the team work plan (P5 is listed after P2 only for layout).
 
@@ -175,11 +175,11 @@ Present in the repository now:
 - Contracts: `IIdentityContext` (`CallerIdentity`), `ISessionManager`, `IAuditWriter`, `IAccessDecision`, `AuthenticationLevel` (`None`, `MfaPending`, `Active`).
 - Stubs and fakes: `StubIdentityContext` (Development, header `X-Stub-User`), `AnonymousIdentityContext` (other environments), `LoggerAuditWriter`, `FakeIdentityContext`, `InMemorySessionManagement`.
 - Consumer of our contracts: `PUT /api/admin/accounts/{id}/status` (IDN-03).
-- Contract documents: `docs/contracts/IIdentityContext.md`, `docs/contracts/ISessionManagement.md`.
+- Contract documents: [`IIdentityContext.md`](./contracts/IIdentityContext.md), [`ISessionManagement.md`](./contracts/ISessionManagement.md).
 - Identity module skeleton: `backend/Platform.Identity` with `PlatformIdentityDbContext`, `AddIdentityModule()` and the initial migration for `identity.accounts`.
-- US-04 login: `POST /api/auth/login` (`LoginController`, `LoginAccount`), BCrypt `IPasswordHasher`, `ICredentialVerifier`, column `password_hash` (migration `AddAccountPasswordHash`), session cookie `SecurityLab.Session`. Details in `docs/IDN-02_LOGIN.md`.
+- US-04 login: `POST /api/auth/login` (`LoginController`, `LoginAccount`), BCrypt `IPasswordHasher`, `ICredentialVerifier`, column `password_hash` (migration `AddAccountPasswordHash`), session cookie `SecurityLab.Session`. Details in [`IDN-02_LOGIN.md`](./IDN-02_LOGIN.md).
 - US-03 session store: table `identity.sessions` (migration `AddSessions`), `ISessionStore`, `SessionStore`, `SessionTokenGenerator`. Login creates sessions through `StoreSessionCreator`.
-- US-05 logout: `POST /api/auth/logout` (`LogoutController`, `LogoutAccount`), `ISessionStore.RevokeByTokenAsync`. Details in `docs/IDN-02_LOGOUT.md`.
+- US-05 logout: `POST /api/auth/logout` (`LogoutController`, `LogoutAccount`), `ISessionStore.RevokeByTokenAsync`. Details in [`IDN-02_LOGOUT.md`](./IDN-02_LOGOUT.md).
 - US-06 session check: `SessionCheckMiddleware` and `StoreSessionManager.ValidateAsync` answer `401` for a missing, unknown, revoked or expired session. Revoke and list methods of `StoreSessionManager` are not implemented yet.
 
 Planned (this DFD describes them, but the code does not exist yet): P2, P5, the `ISessionManagement` part of P4, the real `IIdentityContext`, last activity update, MFA columns in D1, the remaining endpoints under `/api/auth`.
@@ -188,7 +188,7 @@ Open decisions that can change this diagram (to confirm with the assistant): whi
 
 ## Evidence of work
 
-- Changed files / commit / pull request: `docs/IDN-02_IDN-06_DFD.md` ([PR link])
+- Changed files / commit / pull request: `docs/components/identity/IDN-02_IDN-06_DFD.md` ([PR link])
 - Run instructions: open this file on GitHub, the Mermaid diagram renders in the page.
 - Tests and results: not applicable to documentation. Each flow is linked to an endpoint, contract or table in [Data flows](#data-flows).
 - Team review: [ ] reviewed by the whole team

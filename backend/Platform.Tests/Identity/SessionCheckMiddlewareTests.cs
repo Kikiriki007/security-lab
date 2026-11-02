@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Platform.Api.Services.Identity;
+using Platform.Api.Domain.Authentication;
+using Moq;
 
 namespace Platform.Tests.Identity;
 
@@ -9,13 +11,13 @@ namespace Platform.Tests.Identity;
 public class SessionCheckMiddlewareTests
 {
     private bool _nextCalled;
-    private InMemorySessionManagement _sessionManagement = null!;
+    private Mock<ISessionManager> _sessions = null!;
     private SessionCheckMiddleware _middleware = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _sessionManagement = new InMemorySessionManagement();
+        _sessions = new Mock<ISessionManager>();
         _nextCalled = false;
 
         RequestDelegate mockNextMiddleware = (Context) =>
@@ -32,7 +34,7 @@ public class SessionCheckMiddlewareTests
     {
         var context = new DefaultHttpContext();
 
-        await _middleware.Invoke(context, _sessionManagement);
+        await _middleware.Invoke(context, _sessions.Object);
 
         Assert.That(context.Response.StatusCode, Is.Not.EqualTo(401));
         Assert.That(_nextCalled, Is.True);
@@ -45,7 +47,7 @@ public class SessionCheckMiddlewareTests
         var context = new DefaultHttpContext();
         context.SetEndpoint(endpoint);
 
-        await _middleware.Invoke(context, _sessionManagement);
+        await _middleware.Invoke(context, _sessions.Object);
 
         Assert.That(_nextCalled, Is.True);
         Assert.That(context.Response.StatusCode, Is.Not.EqualTo(401));
@@ -58,7 +60,7 @@ public class SessionCheckMiddlewareTests
         var context = new DefaultHttpContext();
         context.SetEndpoint(endpoint);
 
-        await _middleware.Invoke(context, _sessionManagement);
+        await _middleware.Invoke(context, _sessions.Object);
 
         Assert.That(_nextCalled, Is.False);
         Assert.That(context.Response.StatusCode, Is.EqualTo(401));
@@ -70,9 +72,10 @@ public class SessionCheckMiddlewareTests
         var endpoint = new Endpoint(null, null, "protected");
         var context = new DefaultHttpContext();
         context.SetEndpoint(endpoint);
+        SessionReturns("nepoznat-token", null);
         context.Request.Headers.Cookie = $"{SessionCookie.Name}=nepoznat-token";
 
-        await _middleware.Invoke(context, _sessionManagement);
+        await _middleware.Invoke(context, _sessions.Object);
 
         Assert.That(_nextCalled, Is.False);
         Assert.That(context.Response.StatusCode, Is.EqualTo(401));
@@ -87,10 +90,10 @@ public class SessionCheckMiddlewareTests
         var userId = Guid.NewGuid();
         var token = "valid-token";
 
-        _sessionManagement.Seed(userId, token: token);
+        SessionReturns(token, new ValidateSession(Guid.NewGuid(), userId, AuthenticationLevel.Active));
         context.Request.Headers.Cookie = $"{SessionCookie.Name}={token}";
 
-        await _middleware.Invoke(context, _sessionManagement);
+        await _middleware.Invoke(context, _sessions.Object);
 
         Assert.That(_nextCalled, Is.True);
         Assert.That(context.Response.StatusCode, Is.Not.EqualTo(401));
@@ -111,11 +114,10 @@ public class SessionCheckMiddlewareTests
         var userId = Guid.NewGuid();
         var token = "revoked-token";
 
-        var handle = _sessionManagement.Seed(userId, token: token);
-        _sessionManagement.RevokeSession(userId, handle);
+        SessionReturns(token, null);
         context.Request.Headers.Cookie = $"{SessionCookie.Name}={token}";
 
-        await _middleware.Invoke(context, _sessionManagement);
+        await _middleware.Invoke(context, _sessions.Object);
 
         Assert.That(_nextCalled, Is.False);
         Assert.That(context.Response.StatusCode, Is.EqualTo(401));
@@ -130,12 +132,16 @@ public class SessionCheckMiddlewareTests
         var userId = Guid.NewGuid();
         var token = "expired-token";
 
-        _sessionManagement.Seed(userId, lifetime: TimeSpan.FromMinutes(-1), token: token);
+        SessionReturns(token, null);
         context.Request.Headers.Cookie = $"{SessionCookie.Name}={token}";
 
-        await _middleware.Invoke(context, _sessionManagement);
+        await _middleware.Invoke(context, _sessions.Object);
 
         Assert.That(_nextCalled, Is.False);
         Assert.That(context.Response.StatusCode, Is.EqualTo(401));
     }
+
+    private void SessionReturns(string token, ValidateSession? session) =>
+        _sessions.Setup(s => s.ValidateAsync(token, It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(session);
 }

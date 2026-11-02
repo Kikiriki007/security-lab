@@ -32,10 +32,7 @@ builder.Services.AddScoped<LoginAccount>();
 builder.Services.AddScoped<LogoutAccount>();
 builder.Services.AddScoped<ISessionCreator, StoreSessionCreator>();
 
-if (builder.Environment.IsDevelopment())
-    builder.Services.AddScoped<IIdentityContext, StubIdentityContext>();
-else
-    builder.Services.AddScoped<IIdentityContext, AnonymousIdentityContext>();
+builder.Services.AddScoped<IIdentityContext, SessionIdentityContext>();
 
 var app = builder.Build();
 if (accessDemoEnabled)
@@ -51,8 +48,9 @@ if (app.Environment.IsDevelopment())
     repo.Save(new UserAccount(Guid.Parse("22222222-2222-2222-2222-222222222222"), "student@example.com"));
     repo.Save(new UserAccount(Guid.Parse("33333333-3333-3333-3333-333333333333"), "other@example.com"));
 
-    // US-09: seed development accounts in the identity database (skipped without a connection string).
-    await app.SeedDevelopmentAccountsAsync();
+    // US-02 and US-09: migrate and seed the identity database (skipped without a connection string).
+    if (await app.ApplyIdentityMigrationsAsync())
+        await app.SeedDevelopmentAccountsAsync();
 }
 app.MapGet("/api/health", () => Results.Ok(new
 {

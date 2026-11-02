@@ -195,6 +195,8 @@ public class LogoutTests
             Guid userId, AuthLevel level, TimeSpan lifetime, CancellationToken ct) => throw new NotSupportedException();
 
         public Task<Session?> FindByTokenAsync(string rawToken, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task TouchAsync(Session session, DateTimeOffset now, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class RecordingAudit : IAuditWriter

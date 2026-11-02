@@ -33,6 +33,11 @@ public sealed class Session
     public DateTimeOffset LastActivityAt { get; private set; }
     public DateTimeOffset? RevokedAt { get; private set; }
 
+    public void Touch(DateTimeOffset now)
+    {
+        LastActivityAt = now;
+    }
+
     /// <summary>Marks the session as revoked. The first revocation time is kept.</summary>
     public void Revoke(DateTimeOffset now) => RevokedAt ??= now;
 }

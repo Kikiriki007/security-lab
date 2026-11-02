@@ -9,6 +9,8 @@ public interface ISessionStore
 
     Task<Session?> FindByTokenAsync(string rawToken, CancellationToken ct);
 
+    Task TouchAsync(Session session, DateTimeOffset now, CancellationToken ct);
+
     /// <summary>
     /// Revokes the session with this token. Returns the session only when this call revoked it;
     /// null when the token is unknown, the session has expired or it was already revoked,

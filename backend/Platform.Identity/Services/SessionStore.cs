@@ -36,6 +36,19 @@ internal sealed class SessionStore(PlatformIdentityDbContext db, TimeProvider ti
         return await db.Sessions.FirstOrDefaultAsync(s => s.TokenHash == hash, ct);
     }
 
+    public async Task TouchAsync(Session session, DateTimeOffset now, CancellationToken ct)
+    {
+        session.Touch(now);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            db.Entry(session).State = EntityState.Detached;
+        }
+    }
+
     public async Task<Session?> RevokeByTokenAsync(string rawToken, CancellationToken ct)
     {
         var session = await FindByTokenAsync(rawToken, ct);

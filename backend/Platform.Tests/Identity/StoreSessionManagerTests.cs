@@ -2,6 +2,7 @@
 using Platform.Identity.Services;
 using Platform.Api.Services.Identity;
 using Platform.Identity.Domain;
+using Moq;
 
 namespace Platform.Tests.Identity;
 
@@ -9,20 +10,20 @@ namespace Platform.Tests.Identity;
 [Category("US-06")]
 public class StoreSessionManagerTests
 {
-    private FakeSessionStore _store = null!;
+    private Mock<ISessionStore> _store = null!;
     private StoreSessionManager _manager = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _store = new FakeSessionStore();
-        _manager = new StoreSessionManager(_store);
+        _store = new Mock<ISessionStore>();
+        _manager = new StoreSessionManager(_store.Object);
     }
 
     [Test]
     public async Task UnknownToken_ReturnsNull()
     {
-        _store.Session = null;
+        StoreReturns("unknown-token", null);
 
         var result = await _manager.ValidateAsync("unknown-token");
 
@@ -32,7 +33,7 @@ public class StoreSessionManagerTests
     [Test]
     public async Task ExpiredSession_ReturnsNull()
     {
-        _store.Session = NewSession(AuthLevel.Active, expiresIn: TimeSpan.FromMinutes(-1));
+        StoreReturns("token", NewSession(AuthLevel.Active, expiresIn: TimeSpan.FromMinutes(-1)));
 
         var result = await _manager.ValidateAsync("token");
 
@@ -43,7 +44,7 @@ public class StoreSessionManagerTests
     public async Task ValidSession_ReturnsHandleUserAndActiveLevel()
     {
         var session = NewSession(AuthLevel.Active, expiresIn: TimeSpan.FromHours(1));
-        _store.Session = session;
+        StoreReturns("token", session);
 
         var result = await _manager.ValidateAsync("token");
 
@@ -57,34 +58,45 @@ public class StoreSessionManagerTests
     [Test]
     public async Task MfaPendingSession_MapsToMfaPending()
     {
-        _store.Session = NewSession(AuthLevel.MfaPending, expiresIn: TimeSpan.FromHours(1));
+        StoreReturns("token", NewSession(AuthLevel.MfaPending, expiresIn: TimeSpan.FromHours(1)));
 
         var result = await _manager.ValidateAsync("token");
 
+        Assert.That(result, Is.Not.Null);
         Assert.That(result!.Level, Is.EqualTo(AuthenticationLevel.MfaPending));
     }
 
+    [Test]
+    public async Task ValidSession_UpdatesLastActivity()
+    {
+        var session = NewSession(AuthLevel.Active, expiresIn: TimeSpan.FromHours(1));
+        StoreReturns("token", session);
+
+        await _manager.ValidateAsync("token");
+
+        _store.Verify(s => s.TouchAsync(session, It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task ExpiredSession_DoesNotUpdateLastActivity()
+    {
+        StoreReturns("token", NewSession(AuthLevel.Active, expiresIn: TimeSpan.FromMinutes(-1)));
+
+        await _manager.ValidateAsync("token");
+
+        _store.Verify(s => s.TouchAsync(It.IsAny<Session>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     // Opozvana sesija: čeka opoziv iz US-03 (RevokedAt se trenutno ne može postaviti).
+
+    private void StoreReturns(string token, Session? session) =>
+        _store.Setup(s => s.FindByTokenAsync(token, It.IsAny<CancellationToken>()))
+              .ReturnsAsync(session);
 
     private static Session NewSession(AuthLevel level, TimeSpan expiresIn)
     {
         var now = DateTimeOffset.UtcNow;
         return new Session(Guid.NewGuid(), Guid.NewGuid(), new byte[32], Guid.NewGuid(),
             level, now, now + expiresIn);
-    }
-
-    private sealed class FakeSessionStore : ISessionStore
-    {
-        public Session? Session { get; set; }
-
-        public Task<Session?> FindByTokenAsync(string rawToken, CancellationToken ct) =>
-            Task.FromResult(Session);
-
-        public Task<(string RawToken, Session Session)> CreateAsync(
-            Guid userId, AuthLevel level, TimeSpan lifetime, CancellationToken ct) =>
-            throw new NotSupportedException();
-
-        public Task<Session?> RevokeByTokenAsync(string rawToken, CancellationToken ct) =>
-            throw new NotSupportedException();
     }
 }

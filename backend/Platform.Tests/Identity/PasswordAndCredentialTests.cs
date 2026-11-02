@@ -9,25 +9,35 @@ public class PasswordAndCredentialTests
 {
     private const string Password = "correct horse battery staple";
 
+    // Passwords the hasher and verifier must handle the same way: ASCII, Cyrillic, mixed scripts, special characters.
+    private static readonly string[] Passwords =
+    [
+        Password,
+        "бурек је најјачи искрено",
+        "thisIsAnotherPasswordTestWohooo",
+        "Pisi kako читаш citaj kako пишеш",
+        "p@$$w0rd!\"'<>&%\\"
+    ];
+
     private readonly BCryptPasswordHasher _hasher = new();
-    private string _hash = null!;
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp() => _hash = _hasher.Hash(Password);
-
-    [Test]
-    public void Hash_IsBCrypt_NotPlaintext_AndSalted()
+    [TestCaseSource(nameof(Passwords))]
+    public void Hash_IsBCrypt_NotPlaintext_AndSalted(string password)
     {
-        Assert.That(_hash, Does.StartWith("$2"));
-        Assert.That(_hash, Does.Not.Contain(Password));
-        Assert.That(_hasher.Hash(Password), Is.Not.EqualTo(_hash));
+        var hash = _hasher.Hash(password);
+
+        Assert.That(hash, Does.StartWith("$2"));
+        Assert.That(hash, Does.Not.Contain(password));
+        Assert.That(_hasher.Hash(password), Is.Not.EqualTo(hash));
     }
 
-    [Test]
-    public void Verify_AcceptsCorrectPassword_AndRejectsWrongOne()
+    [TestCaseSource(nameof(Passwords))]
+    public void Verify_AcceptsCorrectPassword_AndRejectsWrongOne(string password)
     {
-        Assert.That(_hasher.Verify(Password, _hash), Is.True);
-        Assert.That(_hasher.Verify("wrong password", _hash), Is.False);
+        var hash = _hasher.Hash(password);
+
+        Assert.That(_hasher.Verify(password, hash), Is.True);
+        Assert.That(_hasher.Verify("wrong password", hash), Is.False);
     }
 
     [Test]
@@ -47,25 +57,25 @@ public class PasswordAndCredentialTests
         Assert.That(_hasher.Verify(new string('a', 99) + "b", hash), Is.False);
     }
 
-    [Test]
-    public async Task Verifier_AcceptsCorrectCredentials_WithEmailNormalization()
+    [TestCaseSource(nameof(Passwords))]
+    public async Task Verifier_AcceptsCorrectCredentials_WithEmailNormalization(string password)
     {
         var id = Guid.NewGuid();
-        var verifier = VerifierWith(new CredentialRecord(id, AccountStatus.Active, _hash));
+        var verifier = VerifierWith(new CredentialRecord(id, AccountStatus.Active, _hasher.Hash(password)));
 
-        var result = await verifier.VerifyAsync("  Student@Example.COM ", Password);
+        var result = await verifier.VerifyAsync("  Student@Example.COM ", password);
 
         Assert.That(result.IsValid, Is.True);
         Assert.That(result.AccountId, Is.EqualTo(id));
         Assert.That(result.Status, Is.EqualTo(AccountStatus.Active));
     }
 
-    [Test]
-    public async Task Verifier_ReturnsStatus_ForBlockedAccount_SoTheCallerCanRefuse()
+    [TestCaseSource(nameof(Passwords))]
+    public async Task Verifier_ReturnsStatus_ForBlockedAccount_SoTheCallerCanRefuse(string password)
     {
-        var verifier = VerifierWith(new CredentialRecord(Guid.NewGuid(), AccountStatus.Blocked, _hash));
+        var verifier = VerifierWith(new CredentialRecord(Guid.NewGuid(), AccountStatus.Blocked, _hasher.Hash(password)));
 
-        var result = await verifier.VerifyAsync("student@example.com", Password);
+        var result = await verifier.VerifyAsync("student@example.com", password);
 
         Assert.That(result.IsValid, Is.True);
         Assert.That(result.Status, Is.EqualTo(AccountStatus.Blocked));
@@ -74,7 +84,7 @@ public class PasswordAndCredentialTests
     [Test]
     public async Task Verifier_RejectsWrongPassword_UnknownEmail_AndAccountWithoutHash()
     {
-        var withHash = VerifierWith(new CredentialRecord(Guid.NewGuid(), AccountStatus.Active, _hash));
+        var withHash = VerifierWith(new CredentialRecord(Guid.NewGuid(), AccountStatus.Active, _hasher.Hash(Password)));
         var withoutHash = VerifierWith(new CredentialRecord(Guid.NewGuid(), AccountStatus.Active, null));
         var empty = VerifierWith(null);
 

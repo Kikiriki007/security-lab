@@ -79,5 +79,6 @@ public class StoreSessionCreatorTests
 
         public Task<Session?> FindByTokenAsync(string rawToken, CancellationToken ct) => throw new NotSupportedException();
         public Task<Session?> RevokeByTokenAsync(string rawToken, CancellationToken ct) => throw new NotSupportedException();
+        public Task TouchAsync(Session session, DateTimeOffset now, CancellationToken ct) => throw new NotSupportedException();
     }
 }
