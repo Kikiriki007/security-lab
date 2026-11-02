@@ -30,6 +30,7 @@ backend/
     Services/HeaderCurrentActor.cs  fake login for Development
   Team21.Acc.Tests/                 NUnit tests
 docs/team-21/                       this file and our KT1 / KT2 documents
+  acc06-visibility/                 ACC-06 material visibility diagrams
 ```
 
 Core knows nothing about EF or HTTP and Infrastructure knows nothing about HTTP. That's the dependency direction the spec checks for (chapter 8.2), and the compiler holds it for us.
@@ -95,11 +96,29 @@ Without the connection string the api still starts. Only our endpoints fail.
 
 ## Calling our endpoints in Development
 
-No real login yet. Send the user id in a header. Once ACC-01 has endpoints a call looks like this:
+No real login yet. Send the user id in a header. For example the demo teacher asking for the demo course's materials:
 
 ```bash
-curl -H "X-Test-User: 10000000-0000-0000-0000-000000000001" http://localhost:5080/api/courses
+curl -H "X-Test-User: 00000000-0000-0000-0000-000000000001" http://localhost:5080/api/courses/00000000-0000-0000-0000-00000000c001/materials
 ```
+
+The demo ids are in `Team21.Acc.Infrastructure/Groups/Fakes/DemoIds.cs`. In Development the groups demo data is seeded at startup once the groups migration is applied.
+
+| Id ends in | Who or what |
+|---|---|
+| `…0001` | Teacher |
+| `…0002` | Assistant with review rights |
+| `…000a` / `…000b` | StudentA in group A / StudentB in group B |
+| `…00bb` | Blocked student |
+| `…00ff` | Active account outside the course |
+| `…c001` | Demo course |
+| `…d00a` / `…d0cc` | Assignment restricted to group A / open to the whole course |
+
+```bash
+curl -H "X-Test-User: 00000000-0000-0000-0000-00000000000b" http://localhost:5080/api/materials/assignment/00000000-0000-0000-0000-00000000d00a
+```
+
+StudentB gets 404 for the material restricted to group A, the same answer as for a material that doesn't exist.
 
 No header, a bad guid or two headers means nobody is signed in. Outside Development the header is ignored.
 
@@ -183,17 +202,27 @@ The error message goes to the client as written, keep ids and database details o
 
 ## What is faked
 
-Only the `X-Test-User` header exists so far. The rest are planned: whoever first needs one writes the interface and its fake next to their code, registered in Development only.
+Whoever first needs one writes the interface and its fake next to their code, registered in Development only. Outside Development the readers that stand in for other teams deny everyone.
 
 | Fake | Stands in for | Owner | Status |
 |---|---|---|---|
 | `X-Test-User` header | Login and sessions | IDN teams | done |
-| Account status | Blocked / active accounts | IDN-03 team | planned |
-| Course membership and role | Enrollment and teacher assignment | ACC-02 / ACC-03 teams | planned |
-| Material catalog | Labs and assignments | LAB / ASN teams | planned |
-| Audit writer | Audit log storage | AUD team | planned |
+| `FakeAccountStatusReader` | Blocked / active accounts | IDN-03 team | done, `DenyAllAccountStatusReader` outside Development |
+| `FakeCourseMembershipReader` | Enrollment and teacher assignment | ACC-02 / ACC-03 teams | done, `NoCourseMembershipReader` outside Development |
+| `LoggingVisibilityAuditWriter` | Audit log storage | AUD team | done, writes to the application log in every environment |
+| `DemoGroupsSeeder` | Groups demo data | us | done, Development only |
+| Material catalog | Labs and assignments | LAB / ASN teams | not needed while the visibility write side is not ours |
 
 A fake is a test double, not an integration. Member 9 replaces them once the other teams have endpoints.
+
+## ACC-06 visibility diagrams
+
+The KT1 diagrams for server-side material visibility are in [acc06-visibility/](acc06-visibility/).
+
+- **[Component architecture diagram](acc06-visibility/component-architecture.png).** The two material endpoints, `MaterialVisibilityService`, the readers it depends on and who owns each one. Team 21 readers are real, other teams' readers are fakes in Development and deny everyone elsewhere.
+- **[Data flow diagram](acc06-visibility/data-flow.png).** Who asks for a material, the checks the request goes through, the tables and modules it reads, where the audit record goes and where the trust boundaries are. Denials, including a swapped id, a direct URL and a removed member, end in 404.
+
+The decision rules behind both diagrams are in `Team21.Acc.Infrastructure/Groups/Services/MaterialVisibilityService.cs`. The group model they read is in [ACC-06-model.md](ACC-06-model.md).
 
 ## Commits
 

@@ -34,6 +34,8 @@ public static class Team21AccModule
         else
             services.AddScoped<ICurrentActor, AnonymousCurrentActor>();
 
+        services.AddScoped<ICorrelationContext, HttpCorrelationContext>();
+
         var connectionString = builder.Configuration.GetConnectionString(TeamDbContextRegistration.ConnectionStringName);
 
         services.AddTeamDbContext<CoursesDbContext>(connectionString, CoursesDbContext.SchemaName);
@@ -43,7 +45,7 @@ public static class Team21AccModule
         services.AddScoped<IGroupsDbContext>(provider => provider.GetRequiredService<GroupsDbContext>());
 
         services.AddCourses();
-        services.AddGroups();
+        services.AddGroups(builder.Environment);
 
         return builder;
     }
