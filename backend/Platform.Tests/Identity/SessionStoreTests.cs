@@ -6,7 +6,6 @@ using Platform.Identity.Services;
 namespace Platform.Tests.Identity;
 
 [TestFixture]
-[Category("US-03")]
 public class SessionStoreTests
 {
     private static readonly TimeSpan Lifetime = TimeSpan.FromHours(8);

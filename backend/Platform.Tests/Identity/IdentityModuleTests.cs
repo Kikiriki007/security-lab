@@ -10,7 +10,6 @@ using Platform.Identity.Services;
 namespace Platform.Tests.Identity;
 
 [TestFixture]
-[Category("ADM-02")]
 public class IdentityModuleTests
 {
     private ServiceProvider _provider = null!;

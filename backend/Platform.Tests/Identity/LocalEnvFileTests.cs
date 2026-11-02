@@ -4,7 +4,6 @@ using Platform.Identity.Data;
 namespace Platform.Tests.Identity;
 
 [TestFixture]
-[Category("ADM-04")]
 public class LocalEnvFileTests
 {
     private string _root = null!;

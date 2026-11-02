@@ -10,7 +10,6 @@ using Platform.Identity;
 namespace Platform.Tests.Identity;
 
 [TestFixture]
-[Category("ADM-02")]
 public class DevelopmentDatabaseTests
 {
     private const string Password = "test-only-password";

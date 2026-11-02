@@ -8,7 +8,6 @@ using Platform.Identity.Services;
 namespace Platform.Tests.Identity;
 
 [TestFixture]
-[Category("US-04")]
 public class StoreSessionCreatorTests
 {
     private const string Token = "opaque-session-token-value";
