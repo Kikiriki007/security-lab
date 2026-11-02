@@ -86,4 +86,4 @@ if (app.Environment.IsDevelopment())
 
 app.Run();
 
-public partial class Program { }
+public partial class Program { }
