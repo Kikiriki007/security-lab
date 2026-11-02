@@ -31,7 +31,7 @@ public class LoginTests
     private Mock<ISessionCreator> _sessions = null!;
     private Mock<IAuditWriter> _audit = null!;
     private List<AuditEvent> _events = null!;
-    private Login _login = null!;
+    private LoginService _login = null!;
 
     [SetUp]
     public void SetUp()
@@ -46,7 +46,7 @@ public class LoginTests
         GivenCredentials(CredentialResult.Invalid);
         GivenSession(new IssuedSession(Token, Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(8)));
 
-        _login = new Login(_verifier.Object, _sessions.Object, _audit.Object, TimeProvider.System);
+        _login = new LoginService(_verifier.Object, _sessions.Object, _audit.Object, TimeProvider.System);
     }
 
     private void GivenCredentials(CredentialResult result) =>
