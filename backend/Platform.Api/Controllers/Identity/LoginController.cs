@@ -9,7 +9,7 @@ public sealed record LoginRequest(string? Email, string? Password);
 [ApiController]
 [AllowAnonymous]
 [Route("api/auth")]
-public class LoginController(Login login) : ControllerBase
+public class LoginController(LoginService login) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest body, CancellationToken ct)
