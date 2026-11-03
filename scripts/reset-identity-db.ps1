@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 
 $schema = "identity"
 $identityProject = "backend/Platform.Identity"
+$apiProject = "backend/Platform.Api"
 
 function Read-EnvFile([string]$Path) {
     if (-not (Test-Path $Path)) { throw "Missing .env. Copy .env.example to .env and set the credentials." }
@@ -39,9 +40,9 @@ try {
     }
 
     # Everything that can fail on its own runs first, so a broken build never leaves the schema dropped.
-    Write-Host "Building the identity module..."
+    Write-Host "Building the API module..."
     Invoke-Checked "dotnet tool restore failed. Nothing was changed." { dotnet tool restore }
-    Invoke-Checked "Build failed. Nothing was changed." { dotnet build $identityProject --nologo --verbosity quiet }
+    Invoke-Checked "Build failed. Nothing was changed." { dotnet build $apiProject --nologo --verbosity quiet }
 
     Write-Host "Dropping schema '$schema'..."
     Invoke-Checked "Could not drop schema '$schema'." {
@@ -49,8 +50,11 @@ try {
     }
 
     Write-Host "Applying migrations..."
-    Invoke-Checked "Migrations failed. Schema '$schema' was dropped and is not fully recreated." {
-        dotnet ef database update --project $identityProject --startup-project $identityProject --no-build
+    Invoke-Checked "PlatformIdentityDbContext migrations failed. Schema '$schema' was dropped and is not fully recreated." {
+        dotnet ef database update --project $identityProject --startup-project $identityProject --context PlatformIdentityDbContext --no-build
+    }
+    Invoke-Checked "AccountDbContext migrations failed. Schema '$schema' was dropped and is not fully recreated." {
+        dotnet ef database update --project $identityProject --startup-project $apiProject --context AccountDbContext --no-build
     }
 
     Write-Host "Done. Schema '$schema' was recreated from migrations."

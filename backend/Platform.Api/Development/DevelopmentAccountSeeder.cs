@@ -81,7 +81,7 @@ public static class DevelopmentAccountSeeder
         ValidatePassword(password);
 
         if ((await context.Database.GetPendingMigrationsAsync(ct)).Any())
-            throw new InvalidOperationException("Identity migrations are not applied. Run 'dotnet ef database update' first.");
+            throw new InvalidOperationException("Identity migrations are not applied. Start the API in Development or run scripts/reset-identity-db.ps1.");
 
         return await SeedWithoutMigrationCheckAsync(context, hasher, password, environment, ct);
     }

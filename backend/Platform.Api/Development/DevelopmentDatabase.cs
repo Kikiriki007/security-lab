@@ -31,8 +31,10 @@ public static class DevelopmentDatabase
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(DatabaseTimeout);
             using var scope = app.Services.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<PlatformIdentityDbContext>();
-            await context.Database.MigrateAsync(timeout.Token);
+            var services = scope.ServiceProvider;
+            // IDN-01: AspNetUsers is in the same identity schema and shares the migration history table.
+            await services.GetRequiredService<PlatformIdentityDbContext>().Database.MigrateAsync(timeout.Token);
+            await services.GetRequiredService<AccountDbContext>().Database.MigrateAsync(timeout.Token);
 
             logger.LogInformation("Identity migrations are up to date.");
             return true;
