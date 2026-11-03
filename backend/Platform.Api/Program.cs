@@ -10,6 +10,7 @@ using Platform.Api.Security;
 
 using Platform.Api.Domain.Identity;
 using Platform.Api.Middlewares;
+using Platform.Api.Modules.Identity.RateLimiting;
 using Platform.Api.Services.Identity;
 using Platform.Audit.Composition;
 
@@ -36,6 +37,7 @@ else
 
 // Servisi sa main grane
 builder.Services.AddAudit();
+builder.Services.AddIdentityRateLimiting(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -62,6 +64,7 @@ else
 }
 
 var app = builder.Build();
+app.UseIdentityRateLimiting();
 
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();
