@@ -59,7 +59,15 @@ public sealed class SessionManager(PlatformIdentityDbContext db) : ISessionManag
             return null;
 
         session.Touch(now);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            db.Entry(session).State = EntityState.Detached;
+            return null;
+        }
 
         var level = session.AuthLevel switch
         {
