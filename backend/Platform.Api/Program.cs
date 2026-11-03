@@ -1,4 +1,4 @@
-
+using Platform.Authoring.Composition;
 using Platform.Access.Composition;
 using Platform.Access.Contracts;
 using Platform.Access.Domain.Enums;
@@ -24,6 +24,9 @@ builder.Services.AddAccessControl();
 
 // IDN-01: registracija naloga
 builder.Services.AddIdentityModule();
+
+// Tim 20: perzistencija laboratorija
+builder.Services.AddAuthoringModule();
 
 if (builder.Environment.IsDevelopment())
 {

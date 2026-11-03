@@ -1,5 +1,4 @@
-﻿
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -11,6 +10,7 @@
     <ProjectReference Include="..\Platform.Access\Platform.Access.csproj" />
     <ProjectReference Include="..\Platform.Identity\Platform.Identity.csproj" />
     <ProjectReference Include="..\Platform.Audit\Platform.Audit.csproj" />
+    <ProjectReference Include="..\Platform.Authoring\Platform.Authoring.csproj" />
   </ItemGroup>
 
   <ItemGroup>
