@@ -2,7 +2,7 @@
 
 **Team:** 11
 
-**Student:** SopalovicDjordje (student ID: [fill in])
+**Student:** SopalovicDjordje (student ID: [PR70-2023])
 
 **Specification requirements:** AUT-01 (create and edit drafts), AUT-06 (templates for quick task creation)
 
