@@ -37,6 +37,14 @@ public class SessionCheckMiddleware
             return;
         }
 
+        if (context.RequestServices is not null
+            && context.RequestServices.GetService<IHostEnvironment>()?.IsDevelopment() == true
+            && context.Request.Path.StartsWithSegments("/api/laboratories"))
+        {
+            await _next(context);
+            return;
+        }
+
         if (string.IsNullOrEmpty(token))
         {
             context.Response.StatusCode = 401;

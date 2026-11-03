@@ -1,3 +1,5 @@
+using Platform.Api.Modules.Laboratories;
+
 using Platform.Access.Composition;
 using Platform.Access.Contracts;
 using Platform.Access.Domain.Enums;
@@ -6,6 +8,7 @@ using Platform.Api.Development;
 using Platform.Api.Endpoints.Identity;
 using Platform.Api.Interfaces.Identity;
 using Platform.Api.Middleware;
+using Platform.Api.Modules.Identity.RateLimiting;
 using Platform.Api.Services.Identity;
 using Platform.Audit.Composition;
 using Platform.Identity;
@@ -43,6 +46,7 @@ else
 }
 
 builder.Services.AddAudit();
+builder.Services.AddIdentityRateLimiting(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -59,7 +63,10 @@ builder.Services.AddScoped<ISessionCreator, StoreSessionCreator>();
 
 builder.Services.AddScoped<IIdentityContext, SessionIdentityContext>();
 
+builder.Services.AddLaboratories(builder.Environment);
+
 var app = builder.Build();
+app.UseIdentityRateLimiting();
 
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();
@@ -86,6 +93,7 @@ app.MapGet("/api/health", () => Results.Ok(new
 app.UseMiddleware<SessionCheckMiddleware>();
 
 app.MapControllers();
+app.MapLaboratories();
 
 if (app.Environment.IsDevelopment())
 {
