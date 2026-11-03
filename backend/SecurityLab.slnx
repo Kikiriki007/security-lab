@@ -3,5 +3,7 @@
   <Project Path="Platform.Api/Platform.Api.csproj" />
   <Project Path="Platform.Audit/Platform.Audit.csproj" />
   <Project Path="Platform.Audit.Tests/Platform.Audit.Tests.csproj" />
+  <Project Path="Platform.Authoring.Tests/Platform.Authoring.Tests.csproj" />
+  <Project Path="Platform.Authoring/Platform.Authoring.csproj" />
   <Project Path="Platform.Tests/Platform.Tests.csproj" />
 </Solution>
