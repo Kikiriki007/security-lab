@@ -45,7 +45,7 @@ builder.Services.AddSingleton<ICredentialAuthenticator, UnavailableCredentialAut
 builder.Services.AddSingleton<ISessionIssuer, UnavailableSessionIssuer>();
 builder.Services.AddSingleton<IAuditWriter, LoggerAuditWriter>();
 builder.Services.AddSingleton<IAdminDirectory, ConfigAdminDirectory>();
-builder.Services.AddSingleton<IdentityAccessDecision, AdminOnlyAccessDecision>();
+builder.Services.AddSingleton<IdentityAccessDecision, PlatformAccessDecisionAdapter>();
 
 builder.Services.AddScoped<ChangeAccountStatus>();
 builder.Services.AddScoped<LoginAccount>();
@@ -65,6 +65,7 @@ var app = builder.Build();
 
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();
+app.Services.RegisterAccountStatusAccess();
 app.MapAccountEndpoints();
 
 // Probni nalozi samo za lokalni razvoj
