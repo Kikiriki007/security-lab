@@ -7,7 +7,7 @@ namespace Platform.Api.Services.Identity;
 /// sessions and only touches this one session. Without a session to revoke it does nothing, so the caller
 /// answers the same in every case and learns nothing about the session state.
 /// </summary>
-public sealed class LogoutAccount(ISessionStore sessions, IAuditWriter audit, TimeProvider clock)
+public sealed class LogoutService(ISessionStore sessions, IAuditWriter audit, TimeProvider clock) : ILogoutService
 {
     private const string AuditAction = "auth.logout";
 

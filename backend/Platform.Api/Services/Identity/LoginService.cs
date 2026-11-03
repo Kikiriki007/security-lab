@@ -22,7 +22,7 @@ public sealed class LoginService(
     ICredentialVerifier credentials,
     ISessionCreator sessions,
     IAuditWriter audit,
-    TimeProvider clock)
+    TimeProvider clock) : ILoginService
 {
     private const string AuditAction = "auth.login";
 
