@@ -26,7 +26,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let active = true
     void getCurrentUser()
       .then(currentUser => {
-        if (active) setUser(currentUser)
+        if (active) {
+          setUser(currentUser)
+          setInitializationError(null)
+        }
       })
       .catch(error => {
         if (active) {
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const currentUser = await getCurrentUser()
     if (!currentUser) throw new Error('Login did not create an active session')
     setUser(currentUser)
+    setInitializationError(null)
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
