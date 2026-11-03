@@ -1,27 +1,17 @@
-# PR #36 — current-main integration
+# PR #36 — second current-main integration
 
-Team 8 scope: **ACC-04 / ADM-08**, as confirmed in the PR review. Main input: `8420f3b6710dda51b483b3743691996951370c88`. Feature input: `3f535351b3a3289fde78c6fa7b90580477863634`.
+Team 8 scope: **ACC-04 / ADM-08**. Feature input: `3d751274493141202f85c3d686378aedada012c2`. Main input: `0a4f3d1325ef340f19dea25d230209105dfa67b0`.
 
-A normal merge keeps both histories and needs no force push. The delivered resolved tree contains main's merged Identity, Audit and Authoring work and this component's contributions.
+The previous merge integrated main `8420f3b`. Subsequent main merges #51, #48, #28 and #47 introduced audit records, assignment work, Identity rate limiting and the laboratory scaffold. This second normal merge retains all of that work.
 
-| Conflict | Resolution |
-|---|---|
-| `.github/workflows/ci.yml` | Keep main's solution-wide build/test, test-discovery guard, backend artifact and frontend job; include the live KT1 check and its artifact |
-| `backend/SecurityLab.slnx` | Keep every current-main entry and include `Platform.Kt1.Tests` exactly once |
-| `backend/Platform.Api/Program.cs` | Keep main's Identity/Audit registration, controllers, session middleware, development seeds and decision-interface aliases; compose explicitly enabled Development-only KT1 services/routes |
-| `frontend/src/App.tsx` | Keep the account-creation form and render the separate coursework component |
-| `frontend/src/style.css` | Keep main's styles; scope every coursework-specific addition under `.kt1` |
-| `README.md` | Keep the complete main README and append only the ACC-04/ADM-08 section |
+## Conflict resolution
 
-Three composition tests were added in `MainCompositionTests.cs`. The local test helper uses generated TRX filenames for the multi-project solution. No other team's module implementation is edited.
+Only `backend/Platform.Api/Program.cs` conflicted. The resolved file retains all current-main imports, registrations, middleware and routes, and composes the explicitly enabled Development-only KT1 services/routes. `AddLaboratories`, `MapLaboratories` and `AddIdentityRateLimiting` remain present. `UseIdentityRateLimiting` runs before authentication as required by its existing module. The solution automatically merges both new main test projects and the existing KT1 project without duplicates.
 
-## Scope safeguards
+No blanket ours/theirs resolution, old-PR replay or force push is used. The shared ACC-05/ACC-08 module is unchanged; no ACC-08 contextual-policy implementation is introduced.
 
-- The shared Team 3 access implementation/documentation matches main byte-for-byte at the Git blob level.
-- Owned policies have actions `attempt.read`, `attempt.draft.update`, `course.admin.read`, `course.settings.update`, `course.delegation.create` and `course.delegation.revoke`.
-- No contextual-policy port, time-window fixture or old ACC-08 component is added.
-- No replay/cherry-pick of PR #20/#21 is used. The new PR diff is measured against integrated main, which is a parent of the eventual merge commit.
+Two additions to `MainCompositionTests.cs` check laboratory authorization/identity isolation with KT1 enabled and failure to start with invalid rate-limit configuration. Local verification: **317/317** solution cases, **65/65** KT1 cases, live demo **41/41**, frontend build PASS. These are simulator coexistence checks, not production provider integration.
 
 ## Publication
 
-Use the delivered PowerShell procedure to create an isolated repair worktree, perform the real merge, apply only the pinned reviewed resolutions, and verify the resolved Git tree. Original local files/staging remain untouched. After local checks, create a normal merge commit and push `HEAD:feature/acc04-adm08-kt1`; this updates **the existing PR #36**, not a new PR. The new remote CI result must be checked after that push.
+Use the delivered guarded PowerShell script to create an isolated `fix/pr36-main-sync-2` worktree, perform the real merge and verify the full Git tree. Existing local files and staging remain untouched. After local checks, make a normal merge commit and push `HEAD:feature/acc04-adm08-kt1`. This updates **the same PR #36**. The next remote CI result must be verified after that push.

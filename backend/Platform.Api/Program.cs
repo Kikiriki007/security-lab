@@ -1,4 +1,6 @@
 using Platform.Api.Modules.Kt1;
+using Platform.Api.Modules.Laboratories;
+
 using Platform.Access.Composition;
 using Platform.Access.Contracts;
 using Platform.Access.Domain.Enums;
@@ -10,6 +12,7 @@ using Platform.Api.Security;
 
 using Platform.Api.Domain.Identity;
 using Platform.Api.Middlewares;
+using Platform.Api.Modules.Identity.RateLimiting;
 using Platform.Api.Services.Identity;
 using Platform.Audit.Composition;
 
@@ -38,6 +41,7 @@ else
 
 // Servisi sa main grane
 builder.Services.AddAudit();
+builder.Services.AddIdentityRateLimiting(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -63,7 +67,10 @@ else
     builder.Services.AddSingleton<ISessionManager, NoOpSessionRevoker>();
 }
 
+builder.Services.AddLaboratories(builder.Environment);
+
 var app = builder.Build();
+app.UseIdentityRateLimiting();
 if (kt1Enabled)
 {
     app.UseAuthentication();
@@ -103,6 +110,7 @@ app.MapGet("/api/health", () => Results.Ok(new
 app.UseMiddleware<SessionValidationMiddleware>();
 
 app.MapControllers();
+app.MapLaboratories();
 
 if (app.Environment.IsDevelopment())
 {
