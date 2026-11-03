@@ -15,6 +15,7 @@ public class AuthController(ILoginService login, ILogoutService logout, IIdentit
     private readonly ILoginService _login = login;
     private readonly ILogoutService _logout = logout;
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest body, CancellationToken ct)
     {
