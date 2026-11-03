@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-using Platform.Api.Domain.Authentication;
-using Platform.Identity.Data;
-using Platform.Identity.Domain;
+using Platform.Api.Enums.Identity;
+using Platform.Api.Interfaces.Identity;
+using Platform.Api.Models.Identity;
+using Platform.Identity.Enums;
+using Platform.Identity.Persistence;
 
 namespace Platform.Api.Services.Identity;
 

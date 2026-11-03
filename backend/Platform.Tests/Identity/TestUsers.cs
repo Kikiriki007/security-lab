@@ -1,7 +1,9 @@
-using Platform.Identity.Data;
-using Platform.Identity.Domain;
+using Platform.Api.Interfaces.Identity;
+using Platform.Identity.Entities;
+using Platform.Identity.Enums;
+using Platform.Identity.Interfaces;
+using Platform.Identity.Persistence;
 using Platform.Identity.Services;
-using Platform.Api.Services.Identity;
 
 namespace Platform.Tests.Identity;
 

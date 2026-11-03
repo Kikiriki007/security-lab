@@ -1,8 +1,10 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
-using Platform.Api.Domain.Authentication;
-using Platform.Identity.Domain;
-using Platform.Identity.Services;
+using Platform.Api.Enums.Identity;
+using Platform.Api.Interfaces.Identity;
+using Platform.Api.Models.Identity;
+using Platform.Identity.Enums;
+using Platform.Identity.Interfaces;
 
 namespace Platform.Api.Services.Identity;
 

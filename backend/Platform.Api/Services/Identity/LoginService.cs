@@ -1,18 +1,11 @@
-using Platform.Api.Domain.Authentication;
-using Platform.Identity.Domain;
+using Platform.Api.Enums.Identity;
+using Platform.Api.Interfaces.Identity;
+using Platform.Api.Models.Identity;
+using Platform.Identity.Enums;
+using Platform.Identity.Interfaces;
 using Platform.Identity.Services;
 
 namespace Platform.Api.Services.Identity;
-
-public enum LoginOutcome
-{
-    Success,
-    InvalidRequest,
-    InvalidCredentials,
-    Unavailable
-}
-
-public sealed record LoginResult(LoginOutcome Outcome, Guid? UserId = null, IssuedSession? Session = null);
 
 /// <summary>
 /// US-04: e-mail + password login (DFD process P1). Unknown e-mail, wrong password, missing hash and

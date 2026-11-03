@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Platform.Api.Modules.Access.Demo;
+using Platform.Api.Development;
+using Platform.Api.Interfaces.Identity;
+using Platform.Api.Middleware;
 using Platform.Api.Services.Identity;
 using Platform.Identity;
-using Platform.Identity.Data;
-using Platform.Identity.Domain;
+using Platform.Identity.Entities;
+using Platform.Identity.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 var accessDemoEnabled = AccessDemoEndpoints.Enabled(builder.Environment, builder.Configuration);

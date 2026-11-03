@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Platform.Api.Services.Identity;
-using Platform.Identity.Data;
-using Platform.Identity.Domain;
+using Platform.Identity.Enums;
+using Platform.Identity.Persistence;
 using Platform.Identity.Services;
 
 namespace Platform.Tests.Identity;

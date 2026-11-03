@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Platform.Identity;
-using Platform.Identity.Data;
-using Platform.Identity.Domain;
-using Platform.Identity.Services;
+using Platform.Identity.Entities;
+using Platform.Identity.Interfaces;
+using Platform.Identity.Persistence;
 
 namespace Platform.Tests.Identity;
 

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Platform.Identity.Data;
+using Platform.Identity.Persistence;
 
 #nullable disable
 
@@ -26,7 +26,7 @@ namespace Platform.Identity.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Platform.Identity.Domain.Session", b =>
+            modelBuilder.Entity("Platform.Identity.Entities.Session", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -85,7 +85,7 @@ namespace Platform.Identity.Migrations
                     b.ToTable("sessions", "identity");
                 });
 
-            modelBuilder.Entity("Platform.Identity.Domain.UserAccount", b =>
+            modelBuilder.Entity("Platform.Identity.Entities.UserAccount", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -123,9 +123,9 @@ namespace Platform.Identity.Migrations
                     b.ToTable("accounts", "identity");
                 });
 
-            modelBuilder.Entity("Platform.Identity.Domain.Session", b =>
+            modelBuilder.Entity("Platform.Identity.Entities.Session", b =>
                 {
-                    b.HasOne("Platform.Identity.Domain.UserAccount", null)
+                    b.HasOne("Platform.Identity.Entities.UserAccount", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
