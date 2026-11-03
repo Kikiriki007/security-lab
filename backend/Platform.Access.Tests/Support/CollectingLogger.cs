@@ -6,7 +6,8 @@ internal sealed record LogEntry(
     LogLevel Level,
     EventId EventId,
     string Message,
-    IReadOnlyDictionary<string, object?> State);
+    IReadOnlyDictionary<string, object?> State,
+    Exception? Exception = null);
 
 /// <summary>Test logger that keeps every entry together with its structured values.</summary>
 internal sealed class CollectingLogger<T> : ILogger<T>
@@ -33,6 +34,25 @@ internal sealed class CollectingLogger<T> : ILogger<T>
             }
         }
 
-        Entries.Add(new LogEntry(logLevel, eventId, formatter(state, exception), values));
+        lock (Entries)
+        {
+            Entries.Add(new LogEntry(logLevel, eventId, formatter(state, exception), values, exception));
+        }
     }
+}
+
+/// <summary>Logger that fails on every call, to prove a broken logger cannot change a decision.</summary>
+internal sealed class ThrowingLogger<T> : ILogger<T>
+{
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter) =>
+        throw new InvalidOperationException("logger is broken");
 }
