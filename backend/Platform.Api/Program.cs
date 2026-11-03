@@ -1,3 +1,4 @@
+using Platform.Api.Modules.Laboratories;
 
 using Platform.Access.Composition;
 using Platform.Access.Contracts;
@@ -10,6 +11,7 @@ using Platform.Api.Security;
 
 using Platform.Api.Domain.Identity;
 using Platform.Api.Middlewares;
+using Platform.Api.Modules.Identity.RateLimiting;
 using Platform.Api.Services.Identity;
 using Platform.Audit.Composition;
 
@@ -36,6 +38,7 @@ else
 
 // Servisi sa main grane
 builder.Services.AddAudit();
+builder.Services.AddIdentityRateLimiting(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -61,7 +64,14 @@ else
     builder.Services.AddSingleton<ISessionManager, NoOpSessionRevoker>();
 }
 
+// Laboratories modul
+builder.Services.AddLaboratories(builder.Environment);
+
+// Kreiranje aplikacije
 var app = builder.Build();
+
+// Identity Rate Limiting
+app.UseIdentityRateLimiting();
 
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();
@@ -85,6 +95,7 @@ if (app.Environment.IsDevelopment())
         "other@example.com"));
 }
 
+// Health endpoint
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "ok",
@@ -95,6 +106,7 @@ app.MapGet("/api/health", () => Results.Ok(new
 app.UseMiddleware<SessionValidationMiddleware>();
 
 app.MapControllers();
+app.MapLaboratories();
 
 if (app.Environment.IsDevelopment())
 {
