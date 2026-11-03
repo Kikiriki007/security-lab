@@ -6,7 +6,7 @@ using Platform.Identity.Entities;
 using Platform.Identity.Interfaces;
 using Platform.Identity.Persistence;
 
-namespace Platform.Identity.Tests;
+namespace Platform.Identity.Tests.Persistence;
 
 [TestFixture]
 public class IdentityModuleTests
