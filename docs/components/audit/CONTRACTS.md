@@ -164,7 +164,7 @@ with `EventIdConflict` and never replaces the stored record.
 
 | Event type | Producer (requirement) | Outcomes | Actor | Course | Resource | Allowed details |
 |-|-|-|-|-|-|-|
-| `auth.login` | Identity (IDN-02) | Success, Failure | Success: `User`. Failure: `Anonymous`, or `User` when the credentials were valid but the account is not active | forbidden | `Account` on Success | `reasonCode` |
+| `auth.login` | Identity (IDN-02) | Success, Failure | Success: `User`. Failure: `Anonymous`, or `User` when the credentials were valid but the account is not active | forbidden | optional `Account` (the account that logged in) | `reasonCode` |
 | `auth.logout` | Identity (IDN-02) | Success | `User` | forbidden | none | none |
 | `auth.login.throttled` | Identity (IDN-05) | Denied | `Anonymous` | forbidden | none | none |
 | `account.status.changed` | Identity (IDN-03), Admin (ADM-01) | Success, Denied, Failure | `User` or `Anonymous` (Denied, not logged in) | forbidden | `Account` (required) | `oldStatus`, `newStatus`, `reasonCode` |
@@ -175,7 +175,12 @@ with `EventIdConflict` and never replaces the stored record.
 | `access.denied` | Access, Team 3 (ACC-05), through the host adapter | Denied | `User` or `Anonymous` | optional, only from a trusted resource resolver | optional | `action`, `denialReason`, `policyId`, `policyVersion` |
 | `audit.events.viewed` | Audit (AUD-06) | Success | `User` | required | `Course` (required) | `filterType`, `filterOutcome`, `filterFrom`, `filterTo`, `resultCount` |
 
-`reasonCode` is only allowed when the outcome is `Denied` or `Failure`.
+`reasonCode` is only allowed when the outcome is `Denied` or `Failure`. An empty GUID is never a
+valid `CourseId`.
+
+The catalog is `AuditEventCatalog` in `Platform.Audit.Contracts`, so producers can see what each
+type allows. The checks are done by the internal `AuditDraftValidator` in
+`Platform.Audit.Application`, which the writer (story S-06) calls before storing an event.
 
 ### Detail value formats
 
@@ -186,7 +191,7 @@ with `EventIdConflict` and never replaces the stored record.
 | `oldRole`, `newRole` | one of `none`, `student`, `teacher`, `assistant` |
 | `action`, `filterType` | action or event type: `^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$`, at most 64 characters (same rule as `ActionId` in `Platform.Access`) |
 | `denialReason` | one of `unauthenticated`, `account_not_active`, `unknown_action`, `no_policy`, `policy_error` |
-| `policyId` | code, at most 64 characters |
+| `policyId` | `^[a-z][a-z0-9_.-]{0,63}$` |
 | `policyVersion` | `^v[0-9]{1,4}(\.[0-9]{1,4}){0,2}$` |
 | `delegationId` | UUID |
 | `filterOutcome` | one of `success`, `denied`, `failure` |
@@ -202,6 +207,10 @@ with `EventIdConflict` and never replaces the stored record.
 | Detail key | `^[a-z][a-zA-Z0-9]{0,31}$`, and it must be allowed for the event type |
 | Detail value | its format above; at most 64 characters; no control characters |
 | All details together | at most 2048 bytes after serialization to UTF-8 JSON |
+
+Details are checked in this order: number of keys and total size first, so an oversized input is
+refused before any per-key work; then, for each key, the forbidden-name check, the allowlist and
+the value format.
 
 The allowlist is the primary control. As an additional check, a key whose name contains
 `password`, `passwd`, `secret`, `token`, `authorization`, `apikey`, `cookie` or `session`
