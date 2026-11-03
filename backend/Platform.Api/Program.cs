@@ -6,6 +6,9 @@ using Platform.Api.Domain.Identity;
 using Platform.Api.Middlewares;
 using Platform.Api.Services.Identity;
 using Platform.Audit.Composition;
+using Platform.LabVisibility.Composition;
+using Platform.LabVisibility.Contracts;
+using Platform.LabVisibility.Infrastructure.Membership;
 
 // Oba modula imaju interfejs IAccessDecision, pa se koriste aliasi da ime ne bude dvosmisleno.
 using IdentityAccessDecision = Platform.Api.Services.Identity.IAccessDecision;
@@ -15,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAccessControl();
 builder.Services.AddAudit();
+builder.Services.AddLabVisibility();
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -40,6 +44,8 @@ else
 
 var app = builder.Build();
 
+app.Services.RegisterLabVisibilityAccess();
+
 // Probni nalozi samo za lokalni razvoj (izmišljeni domen example.com).
 if (app.Environment.IsDevelopment())
 {
@@ -47,6 +53,12 @@ if (app.Environment.IsDevelopment())
     repo.Save(new UserAccount(Guid.Parse("11111111-1111-1111-1111-111111111111"), "admin@example.com"));
     repo.Save(new UserAccount(Guid.Parse("22222222-2222-2222-2222-222222222222"), "student@example.com"));
     repo.Save(new UserAccount(Guid.Parse("33333333-3333-3333-3333-333333333333"), "other@example.com"));
+
+    // AUT-04/AUT-07 demo kurs: 1111 je nastavnik, 2222 student, 3333 nije na kursu.
+    var demoCourse = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    var membership = app.Services.GetRequiredService<InMemoryCourseMembership>();
+    membership.Set(demoCourse, Guid.Parse("11111111-1111-1111-1111-111111111111"), CourseRole.Teacher);
+    membership.Set(demoCourse, Guid.Parse("22222222-2222-2222-2222-222222222222"), CourseRole.Student);
 }
 
 app.MapGet("/api/health", () => Results.Ok(new
