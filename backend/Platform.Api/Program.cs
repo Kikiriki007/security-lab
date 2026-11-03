@@ -30,7 +30,7 @@ builder.Services.AddSingleton<IAdminDirectory, ConfigAdminDirectory>();
 builder.Services.AddSingleton<IAccessDecision, AdminOnlyAccessDecision>();
 builder.Services.AddScoped<ChangeAccountStatus>();
 builder.Services.AddScoped<LoginService>();
-builder.Services.AddScoped<LogoutAccount>();
+builder.Services.AddScoped<LogoutService>();
 builder.Services.AddScoped<ISessionCreator, StoreSessionCreator>();
 
 builder.Services.AddScoped<IIdentityContext, SessionIdentityContext>();
