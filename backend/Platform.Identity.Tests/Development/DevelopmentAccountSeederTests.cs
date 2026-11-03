@@ -165,6 +165,23 @@ public class DevelopmentAccountSeederTests
     }
 
     [Test]
+    public async Task SeedAsync_ChangedPassword_ReplacesTheHashesOfSeedAccounts()
+    {
+        await using var context = InMemoryContext();
+        await SeedAsync(context);
+
+        var result = await DevelopmentAccountSeeder.SeedWithoutMigrationCheckAsync(
+            context, new TestHasher(), "changed-seed-password", EnvironmentNamed(Environments.Development));
+
+        Assert.That(result.Added, Is.Zero);
+        Assert.That(result.PasswordsSet, Is.EqualTo(4));
+        Assert.That(
+            await context.Accounts.AsNoTracking().Select(account => account.PasswordHash).ToListAsync(),
+            Has.All.EqualTo("test-hash:changed-seed-password"));
+    }
+
+
+    [Test]
     public async Task SeedAsync_StoresOnlyAHash_NotThePassword()
     {
         await using var context = InMemoryContext();

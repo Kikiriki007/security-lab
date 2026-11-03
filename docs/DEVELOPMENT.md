@@ -83,9 +83,10 @@ In the Development environment the API seeds four accounts in `identity.accounts
 
 Set `Seed__DevelopmentPassword` in your local, git-ignored `.env` (or user-secrets). Replace the placeholder from `.env.example` locally; never commit the real value. The password is limited to 128 characters and is stored only as a BCrypt hash.
 
-- Seeding is idempotent: missing accounts are added; seed account status and role are reapplied on every start. Existing password hashes are never overwritten, and a hash is set only when it is missing.
+- Seeding is idempotent: missing accounts are added; seed account status and role are reapplied on every start. The seed accounts' password hash is replaced when it is missing or does not match the current seed password.
 - Without the identity connection string or seed password, seeding is skipped and the API still starts.
 - Seeding never runs outside the Development environment.
-- To change the password, delete the four accounts or run `scripts/reset-identity-db.ps1`, then start the API again. Existing hashes are intentionally preserved otherwise.
+- To change the password, change `Seed__DevelopmentPassword` in `.env` and start the API again.
+
 
 For tests, `TestUsers.Create(accounts, role, status, password)` creates a user in the in-memory account repository. `TestUsers.CreateAsync(context, role, status, password)` saves a user in the identity database used by credential verification and login tests. Without a password either helper creates an account with no hash, which cannot log in.

@@ -120,7 +120,8 @@ public static class DevelopmentAccountSeeder
                 updated++;
             }
 
-            if (account.PasswordHash is null)
+            // A missing hash, or a hash of another password after Seed__DevelopmentPassword was changed in .env.
+            if (!hasher.Verify(password, account.PasswordHash))
             {
                 account.SetPasswordHash(hasher.Hash(password));
                 passwordsSet++;
