@@ -9,6 +9,19 @@ namespace Platform.Authoring.Tests.Infrastructure;
 [Category("Integration")]
 public class AuthoringDbContextConnectionTests
 {
+    [SetUp]
+    public void RequirePostgreSql()
+    {
+        var connectionString = Environment.GetEnvironmentVariable(
+            "ConnectionStrings__Authoring");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            Assert.Ignore(
+                "PostgreSQL is not configured. Skipping integration test.");
+        }
+    }
+
     [Test]
     public async Task CanConnect_ToPostgreSql()
     {

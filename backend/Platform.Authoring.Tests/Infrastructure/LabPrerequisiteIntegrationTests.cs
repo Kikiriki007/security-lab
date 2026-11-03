@@ -11,6 +11,19 @@ namespace Platform.Authoring.Tests.Infrastructure;
 [Category("Integration")]
 public class LabPrerequisiteIntegrationTests
 {
+    [SetUp]
+    public void RequirePostgreSql()
+    {
+        var connectionString = Environment.GetEnvironmentVariable(
+            "ConnectionStrings__Authoring");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            Assert.Ignore(
+                "PostgreSQL is not configured. Skipping integration test.");
+        }
+    }
+
     private static AuthoringDbContext CreateContext()
     {
         var connectionString = Environment.GetEnvironmentVariable(
