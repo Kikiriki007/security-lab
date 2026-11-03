@@ -5,5 +5,7 @@
   <Project Path="Platform.Audit.Tests/Platform.Audit.Tests.csproj" />
   <Project Path="Platform.Authoring.Tests/Platform.Authoring.Tests.csproj" />
   <Project Path="Platform.Authoring/Platform.Authoring.csproj" />
+  <Project Path="Platform.LabLocalization.Tests/Platform.LabLocalization.Tests.csproj" />
+  <Project Path="Platform.LabLocalization/Platform.LabLocalization.csproj" />
   <Project Path="Platform.Tests/Platform.Tests.csproj" />
 </Solution>
