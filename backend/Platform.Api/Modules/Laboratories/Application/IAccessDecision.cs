@@ -10,9 +10,9 @@ public interface IAccessDecision
 
 public enum DenyReason
 {
-    Unauthenticated, 
-    UnknownAction,  
-    NotPermitted   
+    Unauthenticated,
+    UnknownAction,
+    NotPermitted
 }
 
 public sealed record AccessResult(bool Allowed, DenyReason? Reason)

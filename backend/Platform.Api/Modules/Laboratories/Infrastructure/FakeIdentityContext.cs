@@ -29,7 +29,7 @@ public sealed class FakeIdentityContext : IIdentityContext
         {
             return;
         }
-        
+
          string[] parts = raw.Split(':');
         if (parts.Length != 2)
         {

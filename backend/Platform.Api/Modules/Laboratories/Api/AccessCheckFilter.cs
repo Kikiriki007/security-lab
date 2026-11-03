@@ -15,7 +15,7 @@ public static class AccessCheckFilter
 
             AccessResult result = accessDecision.Decide(identity, action);
 
-            // Dozvoljeno 
+            // Dozvoljeno
             if (result.Allowed)
             {
                 return await next(context);
