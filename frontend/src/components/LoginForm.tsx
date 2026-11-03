@@ -1,4 +1,5 @@
 import { SubmitEvent, useRef, useState } from 'react';
+import { useAuth } from '../auth/AuthContext'
 
 type Props = {
   onSuccess: () => boolean
@@ -7,6 +8,7 @@ type Props = {
 const GENERIC_ERROR = 'Incorrect email or password.'
 
 export default function LoginForm({ onSuccess }: Props) {
+  const { request } = useAuth()
   const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
 	const [error, setError] = useState('')
@@ -20,7 +22,7 @@ export default function LoginForm({ onSuccess }: Props) {
 		setLoading(true)
 		setError('')
 
-		const ok = await fetch('/api/auth/login', {
+		const ok = await request('/api/auth/login', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ email, password })
