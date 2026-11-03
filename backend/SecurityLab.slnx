@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="Laboratories.Tests/Laboratories.Tests.csproj" />
   <Project Path="Platform.Access/Platform.Access.csproj" />
   <Project Path="Platform.Api/Platform.Api.csproj" />
   <Project Path="Platform.Audit/Platform.Audit.csproj" />
