@@ -15,6 +15,26 @@ flowchart LR
   Result -->|Authorized view| Student
 ```
 
+## Identity login flow (IDN-02 / IDN-03)
+
+```mermaid
+flowchart LR
+  User[User] -->|Email and password| Login[AuthController]
+  Login --> UseCase[LoginService, IDN-02]
+  UseCase --> Verify[ICredentialVerifier, IDN-02]
+  Verify -->|Read e-mail, hash and status| Accounts[(identity.accounts)]
+  Verify -->|Invalid| Reject[Generic rejection, 401]
+  Verify -->|Valid, with status| Status[Status check, IDN-03]
+  Status -->|BLOCKED / ARCHIVED| Reject
+  Status -->|ACTIVE| Issue[ISessionCreator, IDN-02]
+  Issue -->|Session cookie| Login
+  Reject --> Login
+```
+
+The API checks status only after credentials are valid. Blocked and archived
+accounts get the same response as wrong credentials, so the response does not
+reveal the account status; the audit event records the reason.
+
 ## Component DFD requirements
 
 1. Input and output data, external actors, and request initiators.

@@ -16,11 +16,13 @@ Build the initial API with `dotnet build backend/Platform.Api/Platform.Api.cspro
 2. Start PostgreSQL: `docker compose up -d db`
 3. Start the API: `dotnet run --project backend/Platform.Api --urls http://localhost:5080`
 
-In the Development environment the API applies pending identity migrations when it starts, then seeds the development accounts. If the database is not reachable, the API still starts and logs a warning; start the database and restart the API. Migrations are never applied on startup outside Development.
+In the Development environment the API applies pending identity migrations (`PlatformIdentityDbContext`, login and sessions) when it starts, then seeds the development accounts. The account registration context from IDN-01 (`AccountDbContext`) is not migrated on startup. If the database is not reachable, the API still starts and logs a warning; start the database and restart the API. Migrations are never applied on startup outside Development.
 
 To apply migrations without starting the API, run `dotnet tool restore` once, then:
 
-`dotnet ef database update --project backend/Platform.Identity --startup-project backend/Platform.Identity`
+`dotnet ef database update --project backend/Platform.Identity --startup-project backend/Platform.Identity --context PlatformIdentityDbContext`
+
+`Platform.Identity` has two contexts, so every `dotnet ef` command needs `--context`. `AccountDbContext` (IDN-01) has no design-time factory and uses `--startup-project backend/Platform.Api`; its migrations are in `Migrations/AccountDb`.
 
 Docker Compose, the API in the Development environment, and `dotnet ef` all read the same `.env` from the repository root. `ConnectionStrings__Identity` is built from the `POSTGRES_*` values, so a password changes in one place. Keep `;` out of `POSTGRES_PASSWORD`, because it ends a value in the connection string. If you change the password after the database was created, the old one stays in the Docker volume until you recreate it with `docker compose down -v`, which deletes the local data.
 
@@ -28,7 +30,7 @@ Precedence: `dotnet user-secrets`, if you still have any, override `.env`. Delet
 
 After changing the identity model, add a migration:
 
-`dotnet ef migrations add <Name> --project backend/Platform.Identity --startup-project backend/Platform.Identity --output-dir Migrations`
+`dotnet ef migrations add <Name> --project backend/Platform.Identity --startup-project backend/Platform.Identity --context PlatformIdentityDbContext --output-dir Migrations`
 
 The `Migrations_MatchTheModel` test fails when a model change has no migration. The API starts without a connection string, so the database steps are only needed for work that uses the identity database.
 

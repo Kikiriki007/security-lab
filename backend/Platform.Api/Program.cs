@@ -1,17 +1,22 @@
-using Microsoft.AspNetCore.Authorization;
-using Platform.Api.Modules.Access.Demo;
+using Platform.Access.Composition;
+using Platform.Access.Contracts;
+using Platform.Access.Domain.Enums;
+using Platform.Access.Domain.Models;
 using Platform.Api.Development;
+using Platform.Api.Endpoints.Identity;
 using Platform.Api.Interfaces.Identity;
 using Platform.Api.Middleware;
 using Platform.Api.Services.Identity;
+using Platform.Audit.Composition;
 using Platform.Identity;
 using Platform.Identity.Entities;
 using Platform.Identity.Persistence;
 
-var builder = WebApplication.CreateBuilder(args);
-var accessDemoEnabled = AccessDemoEndpoints.Enabled(builder.Environment, builder.Configuration);
-if (accessDemoEnabled) builder.Services.AddAccessKt1Demo();
+// Oba modula imaju IAccessDecision, zato koristimo alias.
+using IdentityAccessDecision = Platform.Api.Interfaces.Identity.IAccessDecision;
+using PlatformAccessDecision = Platform.Access.Contracts.IAccessDecision;
 
+var builder = WebApplication.CreateBuilder(args);
 
 if (builder.Environment.IsDevelopment())
 {
@@ -19,9 +24,25 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<PlatformIdentityDbContext>(optional: true);
 }
 
+// Access modul
+builder.Services.AddAccessControl();
+
+// IDN-01: registracija naloga
+builder.Services.AddIdentityModule();
+
+// IDN-02: prijava, odjava i sesije
 builder.Services.AddIdentityModule(builder.Configuration);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<IRequestSubjectResolver, DevelopmentSubjectResolver>();
+}
+else
+{
+    builder.Services.AddSingleton<IRequestSubjectResolver, UnauthenticatedSubjectResolver>();
+}
 
+builder.Services.AddAudit();
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -30,7 +51,7 @@ builder.Services.AddScoped<ISessionManager, StoreSessionManager>();   // zamenit
 builder.Services.AddScoped<ISessionManager, SessionManager>();
 builder.Services.AddSingleton<IAuditWriter, LoggerAuditWriter>();
 builder.Services.AddSingleton<IAdminDirectory, ConfigAdminDirectory>();
-builder.Services.AddSingleton<IAccessDecision, AdminOnlyAccessDecision>();
+builder.Services.AddSingleton<IdentityAccessDecision, AdminOnlyAccessDecision>();
 builder.Services.AddScoped<ChangeAccountStatus>();
 builder.Services.AddScoped<LoginService>();
 builder.Services.AddScoped<LogoutService>();
@@ -39,11 +60,10 @@ builder.Services.AddScoped<ISessionCreator, StoreSessionCreator>();
 builder.Services.AddScoped<IIdentityContext, SessionIdentityContext>();
 
 var app = builder.Build();
-if (accessDemoEnabled)
-{
-    app.UseAuthentication();
-    app.MapAccessKt1Demo();
-}
+
+// IDN-01: politike i endpoint za kreiranje naloga
+app.Services.RegisterIdentityAccess();
+app.MapAccountEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
@@ -66,6 +86,29 @@ app.MapGet("/api/health", () => Results.Ok(new
 app.UseMiddleware<SessionCheckMiddleware>();
 
 app.MapControllers();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/api/access/demo-deny", async (
+        PlatformAccessDecision accessDecision,
+        CancellationToken cancellationToken) =>
+    {
+        var decision = await accessDecision.DecideAsync(
+            new AccessRequest(
+                new SubjectRef("demo-student", AccountState.Active),
+                "demo.unknown",
+                null,
+                Guid.NewGuid().ToString("N")),
+            cancellationToken);
+
+        return Results.Ok(new
+        {
+            decision.Outcome,
+            decision.DenialReason,
+            decision.CorrelationId
+        });
+    });
+}
 
 app.Run();
 

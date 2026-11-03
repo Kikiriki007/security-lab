@@ -5,21 +5,6 @@ main { max-width: 900px; margin: 8vh auto; padding: 0 24px; }
 h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
 .eyebrow { font-weight: 700; letter-spacing: .12em; color: #315d8a; }
 section { background: white; border: 1px solid #e1e6ed; border-radius: 12px; padding: 22px; margin-top: 32px; }
-.access-demo { margin-bottom: 48px; }
-.access-demo h2 { margin-top: 0; }
-.access-demo label { display: flex; flex-direction: column; gap: 7px; font-weight: 600; }
-.access-demo select { padding: 10px; border: 1px solid #b9c8d8; border-radius: 6px; color: inherit; background: white; font: inherit; width: 100%; }
-.access-demo button { border: 0; border-radius: 6px; background: #245589; color: white; padding: 11px 16px; cursor: pointer; font: inherit; }
-.access-demo button:disabled { opacity: .6; cursor: wait; }
-.access-demo button.secondary { background: #e7edf5; color: #223045; }
-.access-demo :focus-visible { outline: 3px solid #b66a00; outline-offset: 3px; }
-.access-fields { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 12px; }
-.access-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
-.access-demo pre { background: #f0f4f9; border: 1px solid #dbe4ee; padding: 16px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 100px; }
-.access-note { color: #4c6079; font-size: .95rem; line-height: 1.6; }
-.access-editor { margin-top: 20px; padding-top: 18px; border-top: 1px solid #dbe4ee; }
-.access-editor textarea { padding: 10px; border: 1px solid #b9c8d8; border-radius: 6px; color: inherit; background: white; font: inherit; resize: vertical; width: 100%; }
-.access-editor p { color: #4c6079; font-size: .95rem; line-height: 1.5; }
 .site-nav { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 0; border-bottom: 1px solid #e1e6ed; }
 .brand-link { color: #223045; font-weight: 800; text-decoration: none; }
 .site-nav-links { display: flex; align-items: center; gap: 16px; }
@@ -36,7 +21,6 @@ section { background: white; border: 1px solid #e1e6ed; border-radius: 12px; pad
 .landing-highlights article { border-top: 3px solid #b9c8d8; padding-top: 14px; }
 .landing-highlights h2 { font-size: 1.1rem; margin: 0 0 8px; }
 .landing-highlights p { color: #4c6079; line-height: 1.5; margin: 0; }
-@media (max-width: 560px) { .access-fields { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .site-nav, .site-nav-links { align-items: flex-start; flex-direction: column; } .landing-page { padding: 24px; } .landing-highlights { grid-template-columns: 1fr; } }
 .login-page h2 { margin-top: 0; }
 .login-form { display: flex; flex-direction: column; gap: 16px; max-width: 420px; }
@@ -53,3 +37,14 @@ section { background: white; border: 1px solid #e1e6ed; border-radius: 12px; pad
 .app-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .app-header button { border: 0; border-radius: 6px; padding: 10px 14px; cursor: pointer; font: inherit; }
 .app-header button.secondary { background: #e7edf5; color: #223045; }
+form { display: grid; gap: 8px; max-width: 420px; }
+label { font-weight: 600; margin-top: 8px; }
+input { padding: 10px 12px; border: 1px solid #c5cfdb; border-radius: 8px; font: inherit; }
+input:focus-visible, button:focus-visible { outline: 2px solid #315d8a; outline-offset: 2px; }
+button { margin-top: 12px; padding: 10px 14px; border: 0; border-radius: 8px; background: #315d8a; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .6; cursor: not-allowed; }
+.hint { margin: 0; font-size: .875rem; color: #5b6b7f; }
+.result { margin-top: 12px; padding: 10px 12px; border-radius: 8px; }
+.result p { margin: 0 0 4px; }
+.result.ok { background: #e8f5ec; border: 1px solid #9ad0a8; }
+.result.error { background: #fdecec; border: 1px solid #e3a3a3; }

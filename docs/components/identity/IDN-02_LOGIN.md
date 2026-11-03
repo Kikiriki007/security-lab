@@ -42,7 +42,7 @@ To create a hash for a seed user or a test: `new BCryptPasswordHasher().Hash(pas
 | US-07, US-08 frontend | Send the request with credentials included. Read only the status code and `code`; show one generic message for `401`. |
 | US-09 seed users | Done. `DevelopmentAccountSeeder` seeds four accounts into `identity.accounts` with a BCrypt hash and lower-case e-mails (see [`DEVELOPMENT.md`](../../DEVELOPMENT.md)). Seeding into the in-memory `IAccountRepository` does not make login work. |
 | IDN-03 | Login reads the status from `identity.accounts`, while `PUT /api/admin/accounts/{id}/status` still changes the in-memory account. Until `IAccountRepository` is backed by the database, an account blocked through the endpoint can still log in. |
-| US-13 tests | Use an `ISessionCreator` mock (Moq) as in `Platform.Tests/Identity/LoginTests.cs`. |
+| US-13 tests | Use an `ISessionCreator` mock (Moq) as in `Platform.Identity.Tests/Services/LoginTests.cs`. |
 
 ## Known limitations
 
@@ -55,4 +55,4 @@ To create a hash for a seed user or a test: `new BCryptPasswordHasher().Hash(pas
 
 ## Tests
 
-`Platform.Tests/Identity/LoginTests.cs` (login use case and audit content, collaborators replaced by Moq mocks), `StoreSessionCreatorTests.cs` (level mapping, database failure), `SessionStoreTests.cs` (hash only, revocation) and `PasswordAndCredentialTests.cs` (BCrypt, verifier with a mocked `ICredentialStore`). The controller, status codes and cookie flags are not covered by these unit tests; they belong to HTTP-level tests (US-13). `Migrations_MatchTheModel` covers the migration.
+`Platform.Identity.Tests/Services/LoginTests.cs` (login use case and audit content, collaborators replaced by Moq mocks), `StoreSessionCreatorTests.cs` (level mapping, database failure), `SessionStoreTests.cs` (hash only, revocation) and `PasswordAndCredentialTests.cs` (BCrypt, verifier with a mocked `ICredentialStore`). The controller, status codes and cookie flags are not covered by these unit tests; they belong to HTTP-level tests (US-13). `Migrations_MatchTheModel` covers the migration.

@@ -40,7 +40,7 @@ Not our responsibility: user registration (IDN-01), account status rules (IDN-03
 
 ```mermaid
 flowchart LR
-  Browser[Browser] -->|POST login| Auth[LoginController]
+  Browser[Browser] -->|POST login| Auth[AuthController]
   Auth --> Login[LoginService]
   Login --> Cred[ICredentialVerifier]
   Cred --> Accounts[EfCredentialStore]
@@ -108,13 +108,13 @@ The cookie token and its hash, passwords, and password hashes are not included i
 
 ## Test evidence and local verification
 
-Identity tests cover login, logout, credential checking, session validation and middleware behavior, and identity mapping, including `MfaPending` being unauthenticated. Tests are in `backend/Platform.Tests/Identity`.
+Identity tests cover login, logout, credential checking, session validation and middleware behavior, and identity mapping, including `MfaPending` being unauthenticated. Tests are in `backend/Platform.Identity.Tests`.
 
 From the repository root:
 
 ```powershell
 dotnet build backend\Platform.Api\Platform.Api.csproj
-dotnet test backend\Platform.Tests\Platform.Tests.csproj
+dotnet test backend\Platform.Identity.Tests\Platform.Identity.Tests.csproj
 ```
 
 ## Next steps

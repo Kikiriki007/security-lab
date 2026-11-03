@@ -56,7 +56,7 @@ The contract is for trusted server-side callers and does not authorize them. Cal
 
 ## Verification
 
-Identity tests cover validation/revocation/listing, middleware handling of missing and invalid sessions, and the behavior of `SessionInfo`. Relevant tests include `SessionManagerTests`, `StoreSessionManagerTests`, and `SessionCheckMiddlewareTests` in `backend/Platform.Tests/Identity`.
+Identity tests cover validation/revocation/listing, middleware handling of missing and invalid sessions, and the behavior of `SessionInfo`. Relevant tests include `SessionManagerTests`, `StoreSessionManagerTests`, and `SessionCheckMiddlewareTests` in `backend/Platform.Identity.Tests` (`Services/` and `Middleware/`).
 
 ## Change history
 

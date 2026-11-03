@@ -129,7 +129,7 @@ Order of checks in the use-case: authenticated, then administrator, then status 
 
 ```powershell
   dotnet build backend\\Platform.Api\\Platform.Api.csproj
-  dotnet test backend\\Platform.Tests\\Platform.Tests.csproj
+  dotnet test backend\\Platform.Identity.Tests\\Platform.Identity.Tests.csproj
 
   cd backend\\Platform.Api
   $env:ASPNETCORE\_ENVIRONMENT = "Development"

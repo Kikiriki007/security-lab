@@ -24,6 +24,13 @@ flowchart TB
 
 Reference contracts include `IIdentityContext`, `IAccessDecision`, `ILabDefinitionReader`, `IAttemptStore`, `ILabEvaluator`, `IAuditWriter`, and optionally `IExecutionGateway`.
 
+The identity login flow (`AuthController` and `LoginService`) checks credentials
+through `ICredentialVerifier`, which also returns the account's current
+`AccountStatus`, and creates a session through `ISessionCreator` only for `ACTIVE`
+accounts. Blocked and archived accounts get the same rejection as wrong
+credentials; only the audit event records the reason. Credential verification and
+session creation belong to IDN-02; the account status rules belong to IDN-03.
+
 Each project component requires its own architecture diagram using the [component template](templates/PROJECT_COMPONENT.md).
 
 ## Frontend authentication boundary (US-08)
