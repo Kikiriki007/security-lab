@@ -151,7 +151,7 @@ Bitne odluke na granicama poverenja:
 | Limiter ne radi na MVC kontroleru (login) | Atribut `[EnableRateLimiting]` | `ControllerActionWithAttributeIsLimited` | Prošao, 1. 11. 2026 |
 
 Verzija koda za kolonu "Dokaz": commit `ef107a5` ([PR #28](https://github.com/owlCoder/security-lab/pull/28)). Rezultat: 24/24 testa prolazi
-(`dotnet test backend/Platform.Identity.Tests` i Visual Studio Test Explorer).
+(`dotnet test backend/Platform.RateLimiting.Tests` i Visual Studio Test Explorer).
 
 ### Test scenariji (struktura iz poglavlja 8.1)
 
@@ -176,13 +176,15 @@ Verzija koda za kolonu "Dokaz": commit `ef107a5` ([PR #28](https://github.com/ow
 - **Changed files / commit / pull request:**
   - Grana: `feature/IDN-05-rate-limiting`
   - Novi fajlovi: `backend/Platform.Api/Modules/Identity/RateLimiting/*` (3 `.cs` + `README.md`),
-    `backend/Platform.Identity.Tests/*`, `docs/components/identity/IDN-05.md`
+    `backend/Platform.RateLimiting.Tests/*`, `docs/components/identity/IDN-05.md`
   - Izmenjeni fajlovi: `backend/Platform.Api/Program.cs` (3 linije)
+  - `backend/SecurityLab.slnx`: dodat `Platform.RateLimiting.Tests` (1 linija). Projekat je ranije nosio ime
+    `Platform.Identity.Tests`, ali je to ime preuzeo IDN-01 (PR #40) za testove modula `Platform.Identity`.
   - Commit / PR: `ef107a5`, [PR #28](https://github.com/owlCoder/security-lab/pull/28)
 - **Run instructions:**
 
   ```powershell
-  dotnet test backend/Platform.Identity.Tests
+  dotnet test backend/Platform.RateLimiting.Tests
   ```
 
   Primer konfiguracije iza proxy-ja:
@@ -196,7 +198,7 @@ Verzija koda za kolonu "Dokaz": commit `ef107a5` ([PR #28](https://github.com/ow
   Ručna provera, kada IDN-02 login endpoint postoji: više od `PermitLimit` prijava u prozoru sa
   iste adrese vraća 429 sa `Retry-After`.
 - **Tests and results:**
-  - `Platform.Identity.Tests`: 24 testa (22 nad izolovanim hostom sa istim podešavanjem kao
+  - `Platform.RateLimiting.Tests`: 24 testa (22 nad izolovanim hostom sa istim podešavanjem kao
     `Program.cs`, uključujući probni MVC kontroler, i 2 nad celim `Program.cs` preko `WebApplicationFactory`).
   - Lokalno, Visual Studio Test Explorer i `dotnet test`, 1. 11. 2026: 24/24 testova prolazi.
     CI: projekat je uključen u `backend/SecurityLab.slnx`, pa ga GitHub Actions pokreće u koraku

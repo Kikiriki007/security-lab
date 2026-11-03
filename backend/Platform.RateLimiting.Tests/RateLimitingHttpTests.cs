@@ -17,7 +17,7 @@ using Microsoft.Extensions.Options;
 using NUnit.Framework;
 using Platform.Api.Modules.Identity.RateLimiting;
 
-namespace Platform.Identity.Tests;
+namespace Platform.RateLimiting.Tests;
 
 /// <summary>
 /// Mala aplikacija sa istim podešavanjem kao Program.cs (AddIdentityRateLimiting / UseIdentityRateLimiting)
