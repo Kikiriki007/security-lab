@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 Push-Location $root
 try {
-    dotnet test ".\backend\SecurityLab.slnx" --configuration Release --logger "trx;LogFileName=acc04-adm08-kt1.trx" --results-directory ".\TestResults"
+    dotnet test ".\backend\SecurityLab.slnx" --configuration Release --logger "trx" --results-directory ".\TestResults"
     if ($LASTEXITCODE -ne 0) { throw "Backend testovi nisu prosli." }
     Push-Location (Join-Path $root "frontend")
     try {

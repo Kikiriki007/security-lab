@@ -3,8 +3,91 @@
     "ACC-04",
     "ADM-08"
   ],
-  "baseCommit": "0d2d5ced289d7b23abca4b1ad35895d1cb3b9057",
+  "baseCommit": "8420f3b6710dda51b483b3743691996951370c88",
   "localValidation": {
+    "date": "2026-11-03",
+    "environment": "Linux / .NET 10.0.403 / PowerShell 7.6.9",
+    "nunit": {
+      "total": 63,
+      "passed": 63,
+      "failed": 0,
+      "skipped": 0
+    },
+    "solutionNunit": {
+      "total": 231,
+      "passed": 231,
+      "failed": 0,
+      "skipped": 0,
+      "projects": [
+        {
+          "project": "platform.audit.tests",
+          "total": 71,
+          "passed": 71,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "project": "platform.authoring.tests",
+          "total": 55,
+          "passed": 55,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "project": "platform.kt1.tests",
+          "total": 63,
+          "passed": 63,
+          "failed": 0,
+          "skipped": 0
+        },
+        {
+          "project": "platform.tests",
+          "total": 42,
+          "passed": 42,
+          "failed": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "liveHttpDemo": {
+      "total": 41,
+      "passed": 41,
+      "revocationProof": {
+        "separateClients": true,
+        "samePreRevocationCookie": true,
+        "delegateSignIns": 1
+      }
+    },
+    "frontendBuild": "PASS",
+    "compositionSmoke": {
+      "health": 200,
+      "main_shared_default_deny": 200,
+      "main_status_anonymous": 401,
+      "main_status_development_stub": 200,
+      "main_registration_anonymous": 401
+    },
+    "browser": "NOT_RERUN_AFTER_MAIN_SYNC",
+    "mergeInputHead": "3f535351b3a3289fde78c6fa7b90580477863634",
+    "mergeInputMain": "8420f3b6710dda51b483b3743691996951370c88"
+  },
+  "externalEvidence": {
+    "newPrUrl": "https://github.com/owlCoder/security-lab/pull/36",
+    "testedCommit": null,
+    "ciRunUrl": null,
+    "ciArtifactConfirmed": false,
+    "tapizTaskLinks": [],
+    "neighborContractReview": null,
+    "contributors": [],
+    "referenceStatus": "PR36_VERIFIED_NEW_POST_MERGE_CI_PENDING",
+    "previousCi": {
+      "url": "https://github.com/owlCoder/security-lab/actions/runs/41501949640",
+      "headSha": "3f535351b3a3289fde78c6fa7b90580477863634",
+      "conclusion": "success",
+      "note": "Verified baseline result before the current-main merge; not evidence of the merged source."
+    }
+  },
+  "note": "No remote task, external acceptance, student commit, or GitHub Actions success is fabricated. Complete external references after actual actions.",
+  "previousLocalValidation": {
     "date": "2026-11-01",
     "environment": "Linux / .NET 10.0.403 / PowerShell 7.6.9",
     "nunit": {
@@ -34,16 +117,5 @@
       "writeAfterRevoke": 404,
       "viewportWidth": 420
     }
-  },
-  "externalEvidence": {
-    "newPrUrl": null,
-    "testedCommit": null,
-    "ciRunUrl": null,
-    "ciArtifactConfirmed": false,
-    "tapizTaskLinks": [],
-    "neighborContractReview": null,
-    "contributors": [],
-    "referenceStatus": "PENDING_REAL_EXTERNAL_EVIDENCE"
-  },
-  "note": "No remote task, external acceptance, student commit, or GitHub Actions success is fabricated. Complete external references after actual actions."
+  }
 }

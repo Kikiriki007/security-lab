@@ -1,36 +1,39 @@
-# Actual local validation — ACC-04 and ADM-08
+# Validation after merging current main into PR #36
 
-Package validation date: **2026-11-01**. Source basis: `main` commit `0d2d5ced289d7b23abca4b1ad35895d1cb3b9057`. Results below concern this new ACC-04 + ADM-08 source package, not earlier ACC-04/context-window PRs.
+Date: **2026-11-03**. PR head before integration: `3f535351b3a3289fde78c6fa7b90580477863634`. Integrated main: `8420f3b6710dda51b483b3743691996951370c88`. The integration preserves all changes on that main, including merges after PR #33.
 
-| Check actually executed | Result | Evidence |
+## Actual local checks
+
+The Release solution build/test completed on Linux using .NET SDK 10.0.403. The selected solution includes every pre-existing main project and adds the KT1 tests once.
+
+| Test project | Passed / total | Failed |
 |---|---|---|
-| .NET 10 Release build + NUnit unit/HTTP/contract tests | **60/60 passed; 0 failed, 0 skipped** | `verification/acc04-adm08-kt1.trx` in the delivery ZIP; regenerated under `TestResults/` locally |
-| PowerShell script against a running real Kestrel API | **41/41 passed** | `verification/acc04-adm08-http-demo.json`, `powershell-demo.log` |
-| Frontend clean install and TypeScript/Vite build | **PASS** | `verification/frontend-build.log` |
-| Actual Chromium browser | **PASS** | Owned draft update, identity switch clears displayed content, IDOR denial, course delegation, settings update, UI revocation in independent browser contexts, unchanged pre-revocation delegate cookie, exactly one delegate sign-in, read/write denial; 420px layout without horizontal overflow |
-| Diagram rendering | Six Mermaid sources rendered as six SVGs; visual inspection passed | `diagrams/*.mmd` and `*.svg` |
-| Safe worktree installer | PASS on Linux PowerShell: paths with spaces, exact Git index tree, actual original staged/unstaged/untracked work preserved, repeat install refuses overwrite | `verification/installer-validation.txt` |
+| platform.audit.tests | 71/71 | 0 |
+| platform.authoring.tests | 55/55 | 0 |
+| platform.kt1.tests | 63/63 | 0 |
+| platform.tests | 42/42 | 0 |
+| **Whole solution** | **231/231** | **0** |
 
-The runtime used for local verification is Linux with .NET SDK 10.0.403 and PowerShell 7.6.9. Windows PowerShell 5.1-compatible syntax is used for the install/demo/task scripts, but this package was not executed on the student's Windows PC. Run the supplied Windows commands and retain that machine's actual outputs.
+The ACC-04/ADM-08 component has **63** cases: its previous 60 plus three composition regressions. The 231 solution cases also include other teams' tests and are not claimed as this team's own tests.
 
-The actual HTTP demo checks: anonymous read/write, owner read/write, persisted answer, stale update, immutable submitted/completed history, invalid input, missing mutation header, foreign ID/write, teacher scope and draft privacy, blocked account, assistant denial, admin with no answer bypass, isolated A/B administration, whitelist/self-grant/duplicate constraints, scoped delegation, delegate settings update, stale course version, no cross-course access or redelegation, cross-course/stale revocation, successful revoke and immediate denial of the delegate's existing cookie.
+The actual PowerShell/Kestrel demonstration passed **41/41**, preserving the same delegate cookie issued before revocation. Frontend clean install and TypeScript/Vite build passed. Additional real HTTP checks passed: health, shared default-deny route, anonymous status-change denial, the main Development-stub status-change success, and anonymous account-registration denial. No database was needed for those authorization checks.
 
-The automated suite also verifies provider outages, snapshot-bound reads/CAS, exactly one winner among concurrent draft updates, administrative revocation at the final storage boundary, secret-free audit, production/disabled-demo route absence and compatibility with the existing shared default-deny contract.
+The three new `MainCompositionTests` verify that enabling the KT1 simulator retains main's Identity status controller and authorization, that the Identity Development header cannot authenticate/elevate a KT1 caller, and that a KT1 admin cookie cannot grant account-registration permission. These are coexistence tests; production identity/provider integration remains planned.
 
-## Remote evidence
+Current reports are in the delivery's `verification/` directory. Fresh Chromium testing was not repeated after this merge; the browser proof recorded in the previous validation belongs to the previous source version.
 
-- New PR: **PENDING** — create a new ACC-04 + ADM-08 PR from the main-based branch.
-- New GitHub Actions run for this source: **PENDING** — not executed or claimed before upload.
-- Expected artifact name configured in CI: `acc04-adm08-kt1-results` — its remote existence must be confirmed from that actual run.
-- Real Tapiz task/card IDs and links: **PENDING**.
-- Actual neighboring-team contract acknowledgement: **PENDING**, see `CONTRACTS.md`.
+## CI preservation and current status
 
-The GitHub workflow retains the existing backend and frontend jobs and adds tests, live demonstration and artifact upload to the backend job. It runs on pull requests and pushes to main. A local feature-branch push by itself is not proof of a run. Replace pending entries only after checking real URLs, the tested commit and the successful result. The packaged reports are a local snapshot, not a remote CI artifact or proof of the student's earlier authorship.
+The existing main solution build/test, nonzero-test discovery gate, backend artifact `backend-test-results-${{ github.sha }}` and frontend job are preserved. The live KT1 demonstration and the `acc04-adm08-kt1-results` artifact are included in the same backend job. TRX filenames are generated per execution instead of forcing every test project to overwrite one shared filename. The live host receives the API content root so main's Development configuration loads consistently.
 
-## Results after the detailed-review corrections
+PR: https://github.com/owlCoder/security-lab/pull/36
 
-The two dedicated `RevocationRejectsTheSamePreviouslyIssuedCookie` cases cover read and write using an explicitly captured cookie with automatic cookie handling disabled. The lifecycle test also keeps independent admin/delegate clients. The live PowerShell script reports 41/41 and records `revocationProof` with separate clients, one delegate sign-in and the same cookie before/after revocation. Actual Chromium verification uses two browser contexts and confirms both read/write denial without a new delegate login. No cookie value is written into the proof JSON.
+Verified previous CI: https://github.com/owlCoder/security-lab/actions/runs/41501949640 — success for `3f535351b3a3289fde78c6fa7b90580477863634` before integration.
 
-Both DFDs were regenerated and visually inspected with provider/store return flows, explicit rejection paths and application audit. Transport rejections that occur before application processing are shown separately and are not falsely claimed to produce an application audit event.
+**A new CI run for the merged source is pending the merge commit being pushed to the same PR branch. No new remote success is claimed.** Preserve the actual tested SHA and direct run/artifact links after it completes. Real Tapiz links and neighboring-team contract acknowledgement remain separate external evidence.
 
-`record-kt1-evidence.ps1` parses and was exercised against a disposable synthetic fixture: missing required fields cause no writes, valid references are stored, and CI success is not inferred from a URL. Source external-evidence fields remain pending. PowerShell syntax checks and the fresh-install / prior-package update / no-overwrite checks are included in the delivery verification folder. Windows execution and a new remote Actions run remain unconfirmed until actually performed.
+## Scope check
+
+`backend/Platform.Access` and `docs/components/ACC-05-ACC-08.md` match integrated main exactly. This PR implements only ACC-04 and ADM-08 policies; it does not introduce contextual/time-window ACC-08 policies. Legacy `docs/components/access/ACC-08.md`, `frontend/src/components/AccessDemo.tsx`, `backend/Platform.Access.Tests`, and the old `AccessPolicy`/`AttemptDraftService` files are not restored. PR #20/#21 are not cherry-picked or copied into the branch.
+
+See `PR36-MAIN-SYNC.md` for the six conflict resolutions and history-preserving delivery procedure.
