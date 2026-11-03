@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace Platform.Api.Services.Identity;
 
 /// <summary>
@@ -6,8 +8,11 @@ namespace Platform.Api.Services.Identity;
 /// </summary>
 public sealed class UnavailableCredentialAuthenticator : ICredentialAuthenticator
 {
-    public CredentialAuthenticationResult Authenticate(string email, string password) =>
-        new(CredentialAuthenticationOutcome.Unavailable);
+    public Task<CredentialAuthenticationResult> AuthenticateAsync(
+        string email,
+        string password,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new CredentialAuthenticationResult(CredentialAuthenticationOutcome.Unavailable));
 }
 
 /// <summary>
@@ -16,4 +21,15 @@ public sealed class UnavailableCredentialAuthenticator : ICredentialAuthenticato
 public sealed class UnavailableSessionIssuer : ISessionIssuer
 {
     public SessionIssueResult Issue(Guid accountId) => new(false);
+}
+
+/// <summary>
+/// PRIVREMENO (IDN-05), samo za Development i Testing dok se IDN-02 ne spoji.
+/// Vraća nasumičan token koji se nigde ne čuva i ne daje pristup ničemu; nije prava sesija.
+/// Kad IDN-02 bude na main grani, ovu klasu treba obrisati i registrovati pravi ISessionIssuer.
+/// </summary>
+public sealed class FakeSessionIssuer : ISessionIssuer
+{
+    public SessionIssueResult Issue(Guid accountId) =>
+        new(true, "fake-" + Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant());
 }

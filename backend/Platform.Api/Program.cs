@@ -41,8 +41,19 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddSingleton<IAccountRepository, InMemoryAccountRepository>();
-builder.Services.AddSingleton<ICredentialAuthenticator, UnavailableCredentialAuthenticator>();
-builder.Services.AddSingleton<ISessionIssuer, UnavailableSessionIssuer>();
+// IDN-05: provera lozinke preko Identity (AppUser) sa zaključavanjem naloga.
+builder.Services.AddScoped<ICredentialAuthenticator, IdentityCredentialAuthenticator>();
+
+// PRIVREMENO dok se IDN-02 ne spoji: lažni izdavač tokena samo za Development/Testing.
+// Van toga prijava i dalje odbija (503), umesto da izda neproverenu sesiju.
+if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddSingleton<ISessionIssuer, FakeSessionIssuer>();
+}
+else
+{
+    builder.Services.AddSingleton<ISessionIssuer, UnavailableSessionIssuer>();
+}
 builder.Services.AddSingleton<IAuditWriter, LoggerAuditWriter>();
 builder.Services.AddSingleton<IAdminDirectory, ConfigAdminDirectory>();
 builder.Services.AddSingleton<IdentityAccessDecision, AdminOnlyAccessDecision>();

@@ -3,16 +3,20 @@ using Platform.Api.Services.Identity;
 
 namespace Platform.Api.Controllers.Identity;
 
-public sealed record LoginRequest(string? Email, string? Password);
+public sealed record LoginRequest(string? Email, string? Password)
+{
+    public override string ToString() => "LoginRequest { *** }";
+}
 
 [ApiController]
 [Route("api/auth")]
 public sealed class LoginController(LoginAccount login) : ControllerBase
 {
     [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        var result = login.Execute(request.Email, request.Password);
+        var result = await login.ExecuteAsync(
+            request.Email, request.Password, HttpContext.TraceIdentifier, cancellationToken);
 
         return result.Outcome switch
         {
@@ -21,6 +25,7 @@ public sealed class LoginController(LoginAccount login) : ControllerBase
                 tokenType = "Bearer",
                 accessToken = result.AccessToken
             }),
+            // IDN-05: isti odgovor za nepostojeći nalog, pogrešnu lozinku i zaključan nalog.
             LoginOutcome.InvalidCredentials => Unauthorized(new
             {
                 code = "invalid_credentials",
