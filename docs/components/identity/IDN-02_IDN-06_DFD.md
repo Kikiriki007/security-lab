@@ -177,7 +177,7 @@ Present in the repository now:
 - Consumer of our contracts: `PUT /api/admin/accounts/{id}/status` (IDN-03).
 - Contract documents: [`IIdentityContext.md`](./contracts/IIdentityContext.md), [`ISessionManagement.md`](./contracts/ISessionManagement.md).
 - Identity module skeleton: `backend/Platform.Identity` with `PlatformIdentityDbContext`, `AddIdentityModule()` and the initial migration for `identity.accounts`.
-- US-04 login: `POST /api/auth/login` (`LoginController`, `Login`), BCrypt `IPasswordHasher`, `ICredentialVerifier`, column `password_hash` (migration `AddAccountPasswordHash`), session cookie `SecurityLab.Session`. Details in [`IDN-02_LOGIN.md`](./IDN-02_LOGIN.md).
+- US-04 login: `POST /api/auth/login` (`AuthController`, `LoginService`), BCrypt `IPasswordHasher`, `ICredentialVerifier`, column `password_hash` (migration `AddAccountPasswordHash`), session cookie `SecurityLab.Session`. Details in [`IDN-02_LOGIN.md`](./IDN-02_LOGIN.md).
 - US-03 session store: table `identity.sessions` (migration `AddSessions`), `ISessionStore`, `SessionStore`, `SessionTokenGenerator`. Login creates sessions through `StoreSessionCreator`.
 - US-05 logout: `POST /api/auth/logout` (`LogoutController`, `LogoutAccount`), `ISessionStore.RevokeByTokenAsync`. Details in [`IDN-02_LOGOUT.md`](./IDN-02_LOGOUT.md).
 - US-06 session check: `SessionCheckMiddleware` and `StoreSessionManager.ValidateAsync` answer `401` for a missing, unknown, revoked or expired session. Revoke and list methods of `StoreSessionManager` are not implemented yet.

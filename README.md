@@ -8,40 +8,111 @@ The repository contains a starter application, not a complete implementation: au
 
 The reference stack is React and TypeScript for the frontend, ASP.NET Core and C# for the API, PostgreSQL for data storage, and NUnit for tests. Alternative components may be used when justified and compatible with the domain rules and security boundaries.
 
+## Requirements
+
+| Tool | Version | Check with |
+| --- | --- | --- |
+| .NET SDK | 10.x | `dotnet --version` |
+| Node.js | 22.12 or later (or 24 or later) | `node --version` |
+| Git | any recent version | `git --version` |
+| Docker Desktop | needed for login and the identity module (local PostgreSQL service) | `docker --version` |
+
 ## Getting started
 
-Requirements: .NET SDK 10 and Node.js 22.12 or later (or Node.js 24 or later). Login and the identity module also need Docker.
+Run all commands from the repository root unless stated otherwise. The commands below work in PowerShell, Command Prompt and Bash.
 
-1. For login and the identity module, copy `.env.example` to `.env` and start PostgreSQL: `docker compose up -d db`
-2. Start the API: `cd backend/Platform.Api && dotnet run --urls http://localhost:5080`
-3. In another terminal, start the frontend: `cd frontend && npm ci && npm run dev`
-4. Open `http://localhost:5173`. The API health endpoint is `http://localhost:5080/api/health`.
+### 1. Get the code
 
-Locally, the API applies the identity migrations and seeds the development accounts when it starts. It also starts without the database, but login then does not work. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for configuration, migrations, and the database reset.
+```
+git clone https://github.com/owlCoder/security-lab.git
+cd security-lab
+```
+
+### 2. Start the API (terminal 1)
+
+```
+cd backend/Platform.Api
+dotnet run --urls http://localhost:5080
+```
+
+Leave this terminal open. When the API is running, open <http://localhost:5080/api/health>. It should return JSON containing `"status":"ok"`.
+
+### 3. Start the frontend (terminal 2)
+
+```
+cd frontend
+npm ci
+npm run dev
+```
+
+`npm ci` is only needed the first time and after `package-lock.json` changes. Then open <http://localhost:5173>. The frontend forwards every `/api` request to `http://localhost:5080` (see `frontend/vite.config.ts`), so the API must be running first.
+
+To stop either program, press `Ctrl+C` in its terminal.
+
+### 4. PostgreSQL for login and the identity module
+
+Login and the identity module need the local PostgreSQL service. The API also starts without it, but login then does not work.
+
+1. Copy `.env.example` to `.env` (`copy .env.example .env` in PowerShell or Command Prompt, `cp .env.example .env` in Bash).
+2. Open `.env` and replace every `CHANGE_ME_FOR_LOCAL_DEVELOPMENT` with a value of your choice (the database password and the password of the development accounts). Never commit `.env`; it is already in `.gitignore`.
+3. Start the service and check that it is healthy:
+
+```
+docker compose up -d db
+docker compose ps
+```
+
+The database listens on `127.0.0.1:5432` only. Stop it with `docker compose down` (add `-v` to also delete its data).
+
+Locally, the API applies the identity migrations and seeds the development accounts when it starts. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for configuration, migrations, and the database reset.
+
+## Running the checks
+
+These are the same checks that run in CI (`.github/workflows/ci.yml`). Run them before opening a pull request.
+
+```
+dotnet build backend/SecurityLab.slnx --configuration Release
+dotnet test backend/SecurityLab.slnx --configuration Release --no-build
+cd frontend
+npm ci
+npm run build
+```
+
+CI builds and tests the whole backend through the solution file `backend/SecurityLab.slnx`. The first run downloads the NUnit packages, so it needs an internet connection. All tests should pass. To run only the authoring tests, use `dotnet test backend/Platform.Authoring.Tests/Platform.Authoring.Tests.csproj --configuration Release`.
+
+If you add a backend module or a test project, add it to the solution so that CI picks it up: `dotnet sln backend/SecurityLab.slnx add backend/<Project>/<Project>.csproj`.
+
+## Troubleshooting
+
+| Problem | What to do |
+| --- | --- |
+| The login page reports an error, or login does not work | The API or PostgreSQL is not running. Start the API as in step 2 and the database as in step 4, then reload the page. |
+| `Address already in use` when starting the API or the frontend | Another program uses port 5080 or 5173. Close it, or stop the earlier run of this project with `Ctrl+C`. |
+| `dotnet` reports that the target framework `net10.0` is not found | Your .NET SDK is older than 10. Install .NET SDK 10 and check `dotnet --version`. |
+| `npm ci` or `npm run dev` reports an unsupported engine or fails on syntax | Your Node.js is too old. Install Node.js 22.12 or later and check `node --version`. |
+| `dotnet test` cannot restore packages | Check your internet connection or proxy, then run the command again. |
+| `docker compose` complains about `Define POSTGRES_PASSWORD in local .env` | Create `.env` from `.env.example` as in the optional PostgreSQL step. |
 
 ## Repository structure
 
+- `backend/SecurityLab.slnx` — backend solution file used by CI.
 - `backend/Platform.Api/` — API entry point.
-- `backend/Platform.Identity/` — identity module: domain, `DbContext`, and migrations.
+- `backend/Platform.Identity/` — identity module: entities, `DbContext`s, migrations, and core services (IDN-01, IDN-02).
+- `backend/Platform.Identity.Tests/` — NUnit tests for the identity module and the identity part of the API.
+- `backend/Platform.Access/` — access control module (ACC-05, ACC-08).
+- `backend/Platform.Audit/` and `backend/Platform.Audit.Tests/` — audit module skeleton and its tests (AUD-01).
+- `backend/Platform.Authoring/` — authoring module: laboratory drafts and templates (AUT-01, AUT-06).
+- `backend/Platform.Authoring.Tests/` — NUnit tests for the authoring module.
 - `frontend/` — React application.
 - `docs/ARCHITECTURE.md` — conceptual architecture and module boundaries.
 - `docs/DATA_FLOW.md` — platform-level data flow example.
+- `docs/DEVELOPMENT.md` — development workflow.
 - `docs/PROJECT_COMPONENTS.md` — project component assignments.
 - `docs/templates/PROJECT_COMPONENT.md` — component documentation template.
+- `docs/components/` — documentation of individual project components.
 
-See the course specification for the full requirements. Use short-lived branches and pull requests for changes; keep credentials and other secrets out of the repository.
+## Contributing
 
-## ACC-04 / ACC-08 initial implementation
+Use short-lived branches and pull requests for changes (for example `feature/AUT-01-AUT-06-lab-drafts`), and mention the requirement IDs from the specification in commits and pull requests. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full workflow. Keep credentials and other secrets out of the repository.
 
-The opt-in development demonstration includes protected attempt reads and own-draft
-updates with atomic version checks, synthetic data and an initial context policy. Start it with
-`dotnet run --project backend/Platform.Api --launch-profile AccessKt1`, then start the
-frontend as above. The normal API profile leaves this demonstration disabled.
-
-Component scope, architecture, DFDs, test commands, and remaining work are documented in
-[the access KT1 checklist](docs/components/access/KT1.md).
-
-The checklist covers all eight KT1 obligations, including the prepared Tapiz backlog,
-shared domain/security model, threat-to-test traceability and proposed provider contract.
-Real Tapiz entries and a neighboring team's contract acceptance must be recorded as actual
-external evidence. They are not created by the demo or claimed by the ZIP.
+See the course specification for the full requirements.

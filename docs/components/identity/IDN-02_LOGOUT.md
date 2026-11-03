@@ -32,4 +32,4 @@ The endpoint is `[AllowAnonymous]`, so logout without a valid session stays idem
 
 ## Tests
 
-`Platform.Tests/Identity/LogoutTests.cs` (use case, controller, cookie attributes, audit content) and `SessionStoreTests.cs` (revocation).
+`Platform.Identity.Tests/Services/LogoutTests.cs` (use case, controller, cookie attributes, audit content) and `SessionStoreTests.cs` (revocation).

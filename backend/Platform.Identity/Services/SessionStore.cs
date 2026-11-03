@@ -1,7 +1,9 @@
 ﻿
 using Microsoft.EntityFrameworkCore;
-using Platform.Identity.Data;
-using Platform.Identity.Domain;
+using Platform.Identity.Entities;
+using Platform.Identity.Enums;
+using Platform.Identity.Interfaces;
+using Platform.Identity.Persistence;
 namespace Platform.Identity.Services;
 
 internal sealed class SessionStore(PlatformIdentityDbContext db, TimeProvider time) : ISessionStore

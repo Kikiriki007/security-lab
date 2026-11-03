@@ -1,4 +1,6 @@
-using Platform.Identity.Services;
+using Platform.Api.Interfaces.Identity;
+using Platform.Api.Models.Identity;
+using Platform.Identity.Interfaces;
 
 namespace Platform.Api.Services.Identity;
 

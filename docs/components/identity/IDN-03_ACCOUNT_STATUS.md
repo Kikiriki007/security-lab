@@ -45,7 +45,7 @@ flowchart LR
   Aud --> Log\[(Application log)]
 ```
 
-Layers: `Controllers/Identity` only translates the result into an HTTP code. `Services/Identity` holds the use-case and the contracts. `Platform.Identity/Domain` holds the enum and the entity. Adapters (`Adapters.cs`) are the replaceable technical parts.
+Layers: `Controllers/Identity` only translates the result into an HTTP code. `Services/Identity` holds the use-case and the replaceable technical parts (`InMemoryAccountRepository`, `LoggerAuditWriter`, `ConfigAdminDirectory`, ...); the contracts are in `Interfaces/Identity`, the results and records in `Models/Identity` and `ChangeStatusOutcome` in `Enums/Identity`. `Platform.Identity/Enums` holds `AccountStatus` and `Platform.Identity/Entities` holds `UserAccount`.
 
 ## Data flow diagram
 
@@ -129,7 +129,7 @@ Order of checks in the use-case: authenticated, then administrator, then status 
 
 ```powershell
   dotnet build backend\\Platform.Api\\Platform.Api.csproj
-  dotnet test backend\\Platform.Tests\\Platform.Tests.csproj
+  dotnet test backend\\Platform.Identity.Tests\\Platform.Identity.Tests.csproj
 
   cd backend\\Platform.Api
   $env:ASPNETCORE\_ENVIRONMENT = "Development"

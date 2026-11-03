@@ -24,7 +24,7 @@ Relevantna postojeća dokumentacija:
 - [Logout](./IDN-02_LOGOUT.md)
 - [IIdentityContext](../../contracts/IIdentityContext.md)
 
-Trenutno [Login](../../../backend/Platform.Api/Services/Identity/Login.cs) uvek kreira `Active` sesiju. 
+Trenutno [LoginService](../../../backend/Platform.Api/Services/Identity/LoginService.cs) uvek kreira `Active` sesiju. 
 Treba da se uvede provera MFA politike i kreiranje `MfaPending` sesije kada je MFA uključen ili obavezan.
 
 ## 3. TOTP parametri

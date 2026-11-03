@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Platform.Identity.Data;
+using Platform.Identity.Persistence;
 
 #nullable disable
 
@@ -26,7 +26,7 @@ namespace Platform.Identity.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Platform.Identity.Domain.UserAccount", b =>
+            modelBuilder.Entity("Platform.Identity.Entities.UserAccount", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")

@@ -2,7 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Platform.Identity.Data;
+using Platform.Identity.Interfaces;
+using Platform.Identity.Persistence;
 using Platform.Identity.Services;
 
 namespace Platform.Identity;
