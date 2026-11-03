@@ -1,3 +1,4 @@
+using Team21.Acc.Core.Groups.Interfaces;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,7 +18,7 @@ public static class GroupsModule
 {
     public static IServiceCollection AddGroups(this IServiceCollection services, IHostEnvironment environment)
     {
-        // services.AddScoped<IGroupService, GroupService>();
+        services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IGroupMembershipReader, GroupMembershipReader>();
         services.AddScoped<IMaterialAccessRuleReader, MaterialAccessRuleReader>();
 
@@ -46,8 +47,9 @@ public static class GroupsModule
 
     public static IEndpointRouteBuilder MapGroups(this IEndpointRouteBuilder app)
     {
-        // app.MapGroupEndpoints();      // routes under /api/courses/{courseId}/groups
+        app.MapGroupEndpoints();
         app.MapMaterialEndpoints();
+
         return app;
     }
 }
