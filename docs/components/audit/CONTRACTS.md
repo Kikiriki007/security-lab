@@ -242,9 +242,10 @@ as is already done for the two `IAccessDecision` interfaces.
 
 ## Test double
 
-`FakeAuditWriter` implements both writer interfaces, records every draft and returns a result
-that the test sets (`Recorded`, `Rejected` with a code, or `Unavailable`). It does not validate
-like the real writer, so a test that passes with the fake does not prove the contract rules.
+Planned, not in this version: `FakeAuditWriter` will implement both writer interfaces, record
+every draft and return a result that the test sets (`Recorded`, `Rejected` with a code, or
+`Unavailable`). It will not validate like the real writer, so a test that passes with the fake
+does not prove the contract rules.
 Those are proven by the Audit module's own tests.
 
 ## How the contract is verified (test group T03)
