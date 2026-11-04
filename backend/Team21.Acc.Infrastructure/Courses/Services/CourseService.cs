@@ -7,6 +7,9 @@ using Team21.Acc.Infrastructure.Courses.Data;
 
 namespace Team21.Acc.Infrastructure.Courses.Services;
 
+/// <summary>
+/// Creating and archiving courses (ACC-01). Archiving is a status change, nothing is deleted.
+/// </summary>
 public sealed class CourseService : ICourseService
 {
     private readonly ICoursesDbContext _context;
@@ -27,7 +30,6 @@ public sealed class CourseService : ICourseService
         CreateCourseRequest request,
         CancellationToken cancellationToken = default)
     {
-        // 1. Authentication
         if (!_actor.IsAuthenticated ||
             _actor.UserId is not Guid userId ||
             userId == Guid.Empty)
@@ -35,13 +37,11 @@ public sealed class CourseService : ICourseService
             return Error.Unauthorized("Sign in first.");
         }
 
-        // 2. Autorizacija
         if (!await _authorization.CanCreateAsync(userId, cancellationToken))
         {
             return Error.Forbidden("Not allowed to create courses.");
         }
 
-        // 3. Validacija
         if (string.IsNullOrWhiteSpace(request.Code))
             return Error.Validation("Course code is required.");
 
@@ -61,14 +61,13 @@ public sealed class CourseService : ICourseService
         if (description.Length > Course.MaxDescriptionLength)
             return Error.Validation("Course description is too long.");
 
-        // 4. Duplicate check
+        // The unique index below still catches two creates racing each other
         var exists = await _context.Courses
             .AnyAsync(course => course.Code == code, cancellationToken);
 
         if (exists)
             return Error.Conflict("Course code already exists.");
 
-        // 5. Create using Nikola's domain model
         var course = new Course(code, name, description, userId);
 
         _context.Courses.Add(course);
@@ -87,7 +86,6 @@ public sealed class CourseService : ICourseService
             return Error.Conflict("Course code already exists.");
         }
 
-        // 6. Rispons
         return new CourseDto(
             course.Id,
             course.Code,
@@ -103,7 +101,6 @@ public sealed class CourseService : ICourseService
         Guid courseId,
         CancellationToken cancellationToken = default)
     {
-        // 1. Autentifikacija
         if (!_actor.IsAuthenticated ||
             _actor.UserId is not Guid userId ||
             userId == Guid.Empty)
@@ -111,14 +108,13 @@ public sealed class CourseService : ICourseService
             return Error.Unauthorized("Sign in first.");
         }
 
-        // 2. autorizacija
+        // Same answer as a missing course, a denial must not show the course exists
         if (!await _authorization.CanArchiveAsync(
                 userId, courseId, cancellationToken))
         {
             return Error.NotFound("Course not found.");
         }
 
-        // 3. nadji kurs
         var course = await _context.Courses
             .SingleOrDefaultAsync(
                 course => course.Id == courseId,

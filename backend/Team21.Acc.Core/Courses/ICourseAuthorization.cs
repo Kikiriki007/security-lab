@@ -1,5 +1,6 @@
 namespace Team21.Acc.Core.Courses;
 
+/// <summary>Who may create and archive courses.</summary>
 public interface ICourseAuthorization
 {
     Task<bool> CanCreateAsync(

@@ -5,6 +5,9 @@ using Team21.Acc.Api.Extensions;
 using Team21.Acc.Core.Courses;
 namespace Team21.Acc.Api.Courses;
 
+/// <summary>
+/// ACC-01 endpoints. Creating a course without the right answers 403, archiving one answers 404.
+/// </summary>
 public static class CourseEndpoints
 {
     public static IEndpointRouteBuilder MapCourseEndpoints(

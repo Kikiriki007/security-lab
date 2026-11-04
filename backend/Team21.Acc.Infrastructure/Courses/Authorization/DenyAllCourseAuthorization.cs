@@ -2,6 +2,7 @@ using Team21.Acc.Core.Courses;
 
 namespace Team21.Acc.Infrastructure.Courses.Authorization;
 
+/// <summary>Used outside Development until real roles exist. Nobody may create or archive.</summary>
 public sealed class DenyAllCourseAuthorization : ICourseAuthorization
 {
     public Task<bool> CanCreateAsync(
