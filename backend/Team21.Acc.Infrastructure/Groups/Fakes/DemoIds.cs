@@ -5,8 +5,9 @@ namespace Team21.Acc.Infrastructure.Groups.Fakes;
 /// </summary>
 public static class DemoIds
 {
-    public static readonly Guid Course = Guid.Parse("00000000-0000-0000-0000-00000000c001");
-    public static readonly Guid ArchivedCourse = Guid.Parse("00000000-0000-0000-0000-00000000c0a0");
+    // Same ids as the ACC-01 sample courses OIB-2026 (active) and OIB-2025 (archived)
+    public static readonly Guid Course = Guid.Parse("21000000-0000-0000-0000-000000000001");
+    public static readonly Guid ArchivedCourse = Guid.Parse("21000000-0000-0000-0000-000000000003");
 
     public static readonly Guid Teacher = Guid.Parse("00000000-0000-0000-0000-000000000001");
     public static readonly Guid Assistant = Guid.Parse("00000000-0000-0000-0000-000000000002");
