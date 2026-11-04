@@ -1,5 +1,6 @@
 ﻿using Team21.Acc.Core.Groups.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Team21.Acc.Core.Common;
 using Team21.Acc.Core.Groups;
 using Team21.Acc.Core.Groups.Dtos;
@@ -276,7 +277,14 @@ public class GroupService : IGroupService
         _context.GroupMembers.Add(member);
 
         // 8. Cuvanje u bazi
-        await _context.SaveChangesAsync(ct);
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            return Error.Conflict("Student is already a member of this group.");
+        }
 
         // 9. Vracanje DTO objekta
         return Result<GroupMemberDto>.Success(
@@ -337,7 +345,15 @@ public class GroupService : IGroupService
         };
 
         _context.Groups.Add(group);
-        await _context.SaveChangesAsync(ct);
+
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            return Error.Conflict("A group with this name already exists in the course.");
+        }
 
         return Result<GroupDto>.Success(
             new GroupDto(group.Id, group.CourseId, group.Name, group.Status));
@@ -381,6 +397,10 @@ public class GroupService : IGroupService
 
         return null;
     }
+
+    // Two requests passed the check at the same time, the unique index caught the second one
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     private static Error CourseNotFound() => Error.NotFound("Course not found.");
 }
