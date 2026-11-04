@@ -1,3 +1,4 @@
+using Platform.Api.Modules.Kt1;
 using Platform.Api.Modules.Laboratories;
 
 using Platform.Access.Composition;
@@ -14,6 +15,9 @@ using Platform.Audit.Composition;
 using Platform.Identity;
 using Platform.Identity.Entities;
 using Platform.Identity.Persistence;
+using Platform.LabVisibility.Composition;
+using Platform.LabVisibility.Contracts;
+using Platform.LabVisibility.Infrastructure.Membership;
 
 // Oba modula imaju IAccessDecision, zato koristimo alias.
 using IdentityAccessDecision = Platform.Api.Interfaces.Identity.IAccessDecision;
@@ -29,6 +33,8 @@ if (builder.Environment.IsDevelopment())
 
 // Access modul
 builder.Services.AddAccessControl();
+var kt1Enabled = Kt1Endpoints.Enabled(builder.Environment, builder.Configuration);
+if (kt1Enabled) builder.Services.AddCourseworkKt1();
 
 // IDN-01: registracija naloga
 builder.Services.AddIdentityModule();
@@ -46,6 +52,7 @@ else
 }
 
 builder.Services.AddAudit();
+builder.Services.AddLabVisibility();
 builder.Services.AddIdentityRateLimiting(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
@@ -63,15 +70,29 @@ builder.Services.AddScoped<ISessionCreator, StoreSessionCreator>();
 
 builder.Services.AddScoped<IIdentityContext, SessionIdentityContext>();
 
+// Laboratories modul
 builder.Services.AddLaboratories(builder.Environment);
 
+// Kreiranje aplikacije
 var app = builder.Build();
+
+// Identity Rate Limiting
 app.UseIdentityRateLimiting();
+if (kt1Enabled)
+{
+    app.UseAuthentication();
+    app.RegisterCourseworkPolicies();
+    app.MapCourseworkKt1();
+}
 
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();
 app.MapAccountEndpoints();
 
+// AUT-04/AUT-07: radnje i politike za prikaz laboratorije
+app.Services.RegisterLabVisibilityAccess();
+
+// Probni nalozi samo za lokalni razvoj
 if (app.Environment.IsDevelopment())
 {
     var repo = app.Services.GetRequiredService<IAccountRepository>();
@@ -79,10 +100,18 @@ if (app.Environment.IsDevelopment())
     repo.Save(new UserAccount(Guid.Parse("22222222-2222-2222-2222-222222222222"), "student@example.com"));
     repo.Save(new UserAccount(Guid.Parse("33333333-3333-3333-3333-333333333333"), "other@example.com"));
 
+    // AUT-04/AUT-07 demo kurs: 1111 je nastavnik, 2222 student, 3333 nije na kursu.
+    var demoCourse = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    var membership = app.Services.GetRequiredService<InMemoryCourseMembership>();
+    membership.Set(demoCourse, Guid.Parse("11111111-1111-1111-1111-111111111111"), CourseRole.Teacher);
+    membership.Set(demoCourse, Guid.Parse("22222222-2222-2222-2222-222222222222"), CourseRole.Student);
+
     // US-02 and US-09: migrate and seed the identity database (skipped without a connection string).
     if (await app.ApplyIdentityMigrationsAsync())
         await app.SeedDevelopmentAccountsAsync();
 }
+
+// Health endpoint
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "ok",

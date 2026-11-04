@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Platform.Api.Enums.Identity;
 using Platform.Api.Interfaces.Identity;
 using Platform.Api.Middleware;
@@ -143,6 +145,57 @@ public class SessionCheckMiddlewareTests
 
         Assert.That(_nextCalled, Is.False);
         Assert.That(context.Response.StatusCode, Is.EqualTo(401));
+    }
+
+    [TestCase("/api/laboratories")]
+    [TestCase("/api/kt1/info")]
+    [TestCase("/api/access/demo-deny")]
+    public async Task DevelopmentModuleRoute_NoCookie_CallsNext(string path)
+    {
+        var context = ProtectedRequest(path, Environments.Development);
+
+        await _middleware.Invoke(context, _sessions.Object);
+
+        Assert.That(_nextCalled, Is.True);
+        Assert.That(context.Response.StatusCode, Is.Not.EqualTo(401));
+    }
+
+    [TestCase("/api/laboratories")]
+    [TestCase("/api/kt1/info")]
+    [TestCase("/api/access/demo-deny")]
+    public async Task ModuleRouteOutsideDevelopment_NoCookie_Returns401(string path)
+    {
+        var context = ProtectedRequest(path, Environments.Production);
+
+        await _middleware.Invoke(context, _sessions.Object);
+
+        Assert.That(_nextCalled, Is.False);
+        Assert.That(context.Response.StatusCode, Is.EqualTo(401));
+    }
+
+    [TestCase("/api/kt1x")]
+    [TestCase("/api/access/demo-deny-other")]
+    [TestCase("/api/auth/me")]
+    public async Task OtherRouteInDevelopment_NoCookie_Returns401(string path)
+    {
+        var context = ProtectedRequest(path, Environments.Development);
+
+        await _middleware.Invoke(context, _sessions.Object);
+
+        Assert.That(_nextCalled, Is.False);
+        Assert.That(context.Response.StatusCode, Is.EqualTo(401));
+    }
+
+    private static DefaultHttpContext ProtectedRequest(string path, string environment)
+    {
+        var host = new Mock<IHostEnvironment>();
+        host.SetupGet(h => h.EnvironmentName).Returns(environment);
+        var services = new ServiceCollection().AddSingleton(host.Object).BuildServiceProvider();
+
+        var context = new DefaultHttpContext { RequestServices = services };
+        context.Request.Path = path;
+        context.SetEndpoint(new Endpoint(null, null, "protected"));
+        return context;
     }
 
     private void SessionReturns(string token, ValidateSession? session) =>

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import AppShell from './components/AppShell'
 import LandingPage from './components/LandingPage'
+import CourseworkKt1 from './components/CourseworkKt1'
 import ProtectedRoute from './components/ProtectedRoute'
 import ProtectedApp from './components/ProtectedApp'
 import LoginPage from './login/page'
@@ -28,7 +29,7 @@ export default function App() {
   return <AuthProvider>
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<LandingPage />} />
+        <Route index element={<><LandingPage /><CourseworkKt1 /></>} />
         <Route path="login" element={<LoginRoute />} />
         <Route element={<ProtectedRoute />}>
           <Route path="access-demo" element={<ProtectedApp />} />

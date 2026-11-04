@@ -4,6 +4,15 @@
       "commandName": "Project",
       "applicationUrl": "http://localhost:5080",
       "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    },
+    "AccessKt1": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Kt1Demo__Enabled": "true"
+      }
     }
   }
 }
