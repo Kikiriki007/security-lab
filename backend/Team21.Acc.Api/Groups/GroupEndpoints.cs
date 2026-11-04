@@ -18,6 +18,8 @@ public static class GroupEndpoints
         // Pregled grupa
         group.MapGet("/", GetGroupsAsync);
 
+        group.MapPost("/", CreateGroupAsync);
+
         // Pregled konkretne grupe
         group.MapGet("/{groupId:guid}", GetGroupAsync);
 
@@ -27,10 +29,9 @@ public static class GroupEndpoints
             GetMembersAsync);
 
         // Dodavanje clana u grupu
-        // TODO: Enable after ACC-01 course status integration.
-        // group.MapPost(
-        //     "/{groupId:guid}/members",
-        //     AddMemberAsync);
+        group.MapPost(
+            "/{groupId:guid}/members",
+            AddMemberAsync);
 
         // Uklanjanje clana iz grupe
         group.MapDelete(
@@ -49,6 +50,19 @@ public static class GroupEndpoints
             courseId, ct);
 
         return result.ToHttpResult();
+    }
+
+    private static async Task<IResult> CreateGroupAsync(
+        Guid courseId,
+        CreateGroupRequest request,
+        IGroupService groupService,
+        CancellationToken ct)
+    {
+        var result = await groupService.CreateGroupAsync(
+            courseId, request.Name ?? string.Empty, ct);
+
+        return result.ToCreatedHttpResult(
+            created => $"/api/courses/{courseId}/groups/{created.Id}");
     }
 
     private static async Task<IResult> GetGroupAsync(
@@ -111,3 +125,5 @@ public static class GroupEndpoints
 }
 
 public sealed record AddGroupMemberRequest(Guid UserId);
+
+public sealed record CreateGroupRequest(string? Name);

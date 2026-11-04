@@ -16,18 +16,21 @@ public class GroupService : IGroupService
     private readonly ICurrentActor _actor;
     private readonly ICourseMembershipReader _membershipReader;
     private readonly IAccountStatusReader _accountStatusReader;
+    private readonly ICourseStateReader _courseStates;
 
 
     public GroupService(
         IGroupsDbContext context,
         ICurrentActor actor,
         ICourseMembershipReader membershipReader,
-        IAccountStatusReader accountStatusReader)
+        IAccountStatusReader accountStatusReader,
+        ICourseStateReader courseStates)
     {
         _context = context;
         _actor = actor;
         _membershipReader = membershipReader;
         _accountStatusReader = accountStatusReader;
+        _courseStates = courseStates;
     }
 
 
@@ -217,6 +220,10 @@ public class GroupService : IGroupService
         if (group.Status != GroupStatus.Active)
             return Error.Conflict("Group is archived.");
 
+        var courseError = await CheckCourseOpenAsync(courseId, ct);
+        if (courseError is not null)
+            return courseError;
+
         // 4. Provera upisa studenta na kurs
         var membership = await _membershipReader.FindAsync(
             userId,
@@ -300,12 +307,41 @@ public class GroupService : IGroupService
             return Error.Validation(
                 "Group name cannot contain control characters.");
 
-        // TODO: Integracija sa ACC-01.
-        // Proveriti da kurs postoji i da nije arhiviran.
-        // Dok ova provera nije dostupna, ne dozvoljavamo upis.
-        return Error.Internal(
-            "Course status verification is not configured.");
+        var courseError = await CheckCourseOpenAsync(courseId, ct);
+        if (courseError is not null)
+            return courseError;
+
+        var nameTaken = await _context.Groups
+            .AnyAsync(g =>
+                g.CourseId == courseId &&
+                g.Status == GroupStatus.Active &&
+                g.Name == name, ct);
+
+        if (nameTaken)
+            return Error.Conflict("A group with this name already exists in the course.");
+
+        var group = new Group
+        {
+            CourseId = courseId,
+            Name = name,
+            CreatedBy = _actor.UserId!.Value
+        };
+
+        _context.Groups.Add(group);
+        await _context.SaveChangesAsync(ct);
+
+        return Result<GroupDto>.Success(
+            new GroupDto(group.Id, group.CourseId, group.Name, group.Status));
     }
+
+    // New groups and members only in an active course (ACC-01 archiving stops new enrollments)
+    private async Task<Error?> CheckCourseOpenAsync(Guid courseId, CancellationToken ct) =>
+        await _courseStates.GetStateAsync(courseId, ct) switch
+        {
+            CourseState.Active => null,
+            CourseState.Archived => Error.Conflict("Course is archived."),
+            _ => CourseNotFound()
+        };
 
     private async Task<Error?> CheckTeacherAccessAsync(
         Guid courseId,
