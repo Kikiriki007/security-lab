@@ -14,7 +14,7 @@ public class CourseServiceTests
     private CoursesDbContext _db = null!;
 
     private static readonly Guid ManagerId =
-        Guid.Parse("10000000-0000-0000-0000-000000000001");
+        Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     [SetUp]
     public async Task SetUp()

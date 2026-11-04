@@ -6,7 +6,7 @@ public sealed class DevelopmentCourseAuthorization : ICourseAuthorization
 {
     // Development-only test identity.
     private static readonly Guid TestManagerId =
-        Guid.Parse("10000000-0000-0000-0000-000000000001");
+        Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     public Task<bool> CanCreateAsync(
         Guid userId,

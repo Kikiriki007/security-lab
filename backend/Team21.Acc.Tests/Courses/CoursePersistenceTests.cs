@@ -91,7 +91,7 @@ public class CoursePersistenceTests
     [TestCase("Status", "Unknown")]
     [TestCase("Status", "Archived")]
     [TestCase("CreatedBy", "00000000-0000-0000-0000-000000000000")]
-    [TestCase("ArchivedBy", "10000000-0000-0000-0000-000000000001")]
+    [TestCase("ArchivedBy", "00000000-0000-0000-0000-000000000001")]
     public async Task DatabaseRejectsInvalidDataEvenWhenDomainIsBypassed(string column, string? value)
     {
         await InsertCourse();
