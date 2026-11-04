@@ -1,8 +1,10 @@
+import CourseworkKt1 from './components/CourseworkKt1'
 import { useEffect, useState } from 'react'
 import { logout } from './api/auth'
 import { apiRequest, session } from './api/http'
 import { getMyRevisions, getPendingReviews } from './api/revisions'
 import CreateAccountForm from './components/CreateAccountForm'
+import LabsSection from './components/labs/LabsSection'
 import LoginPage from './pages/LoginPage'
 import RevisionDetailPage from './pages/RevisionDetailPage'
 import RevisionListPage from './pages/RevisionListPage'
@@ -69,5 +71,8 @@ export default function App() {
 
     <section className="card"><h2>Status razvoja</h2><p>{health}</p></section>
     <section className="card"><h2>Kreiranje naloga (administrator)</h2><CreateAccountForm /></section>
+    {/* Komponente drugih timova sa main grane (ACC-04/ADM-08 i LAB-07) */}
+    <CourseworkKt1 />
+    <LabsSection />
   </main>
 }

@@ -17,7 +17,8 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .result.ok { background: #e8f5ec; border: 1px solid #9ad0a8; }
 .result.error { background: #fdecec; border: 1px solid #e3a3a3; }
 
-/* ---- IDN-05 / REV-05 UI (Daniel) ---- */
+/* ---- IDN-05 / REV-05 UI (Daniel) ----
+   .tabs i .badge su ograniceni (main > .tabs, .badge-<status>) da ne menjaju .kt1 i druge komponente. */
 .login label, .decision-form label { display: grid; gap: 6px; margin-top: 0; }
 textarea { font: inherit; padding: 10px 12px; border: 1px solid #c5cfdb; border-radius: 8px; }
 textarea:focus-visible { outline: 2px solid #315d8a; outline-offset: 2px; }
@@ -39,15 +40,15 @@ button.secondary { background: white; color: #315d8a; border: 1px solid #315d8a;
 .alert p { margin: 0 0 6px; } .alert ul { margin: 6px 0; padding-left: 20px; }
 .alert .secondary { margin-top: 6px; }
 section > .alert-error { margin-top: 14px; }
-.tabs { display: flex; gap: 6px; margin-top: 28px; border-bottom: 1px solid #e1e6ed; }
-.tab { background: none; color: #315d8a; border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 10px 14px; }
-.tab.active { border-bottom-color: #315d8a; }
-.tabs + .card { margin-top: 18px; }
+main > .tabs { display: flex; gap: 6px; margin-top: 28px; border-bottom: 1px solid #e1e6ed; }
+main > .tabs .tab { background: none; color: #315d8a; border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 10px 14px; }
+main > .tabs .tab.active { border-bottom-color: #315d8a; }
+main > .tabs + .card { margin-top: 18px; }
 button.link { background: none; border: none; color: #315d8a; padding: 0; text-decoration: underline; }
 .table { width: 100%; border-collapse: collapse; font-size: .95rem; }
 .table th, .table td { text-align: left; padding: 9px 8px; border-bottom: 1px solid #edf0f4; }
 .table th { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: #5c6b80; }
-.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+.badge-draft, .badge-inreview, .badge-published, .badge-archived { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
 .badge-draft { background: #eef1f5; color: #44546a; }
 .badge-inreview { background: #fff3d6; color: #7a5300; }
 .badge-published { background: #e1f4e8; color: #1d5e33; }
@@ -63,3 +64,45 @@ button.link { background: none; border: none; color: #315d8a; padding: 0; text-d
 .timeline-approved { border-left-color: #3a9a5b; } .timeline-returned { border-left-color: #c98a00; }
 .timeline-head { display: flex; gap: 8px; align-items: center; }
 .comment { white-space: pre-wrap; background: #f7f9fc; border: 1px solid #e1e6ed; border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; }
+
+/* ACC-04 / ADM-08 simulator styles are scoped to avoid changing other teams' forms. */
+.kt1 button, .kt1 input, .kt1 select, .kt1 textarea { font: inherit; }
+.kt1 button { margin-top: 0; background: #174e5e; border: 1px solid #174e5e; color: white; padding: .7rem 1rem; border-radius: 7px; cursor: pointer; }
+.kt1 button:hover:not(:disabled) { background: #103b48; }
+.kt1 button.secondary { background: white; color: #174e5e; }
+.kt1 button:disabled { opacity: .48; cursor: default; }
+.kt1 button:focus-visible, .kt1 input:focus-visible, .kt1 textarea:focus-visible, .kt1 select:focus-visible { outline: 3px solid #d89c24; outline-offset: 2px; }
+.kt1 fieldset { border: 1px solid #d4dde3; border-radius: 9px; padding: 18px; margin: 22px 0; min-width: 0; }
+.kt1 legend { font-weight: 650; padding: 0 8px; }
+.kt1 label { display: grid; gap: 7px; font-size: .94rem; font-weight: 500; margin-top: 0; }
+.kt1 input, .kt1 select, .kt1 textarea { max-width: 100%; width: 100%; background: #fff; color: #223045; border: 1px solid #aebfc9; border-radius: 6px; padding: .65rem; }
+.kt1 textarea { resize: vertical; }
+.kt1 .kt1-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.kt1 .kt1-heading h2 { margin: .4rem 0; }
+.kt1 .kt1-heading .eyebrow { margin: 0; font-size: .8rem; }
+.kt1 .badge { background: #e3f2ef; padding: .5rem .7rem; color: #1b5c54; border-radius: 20px; white-space: nowrap; font-size: .8rem; }
+.kt1 .notice { line-height: 1.6; background: #eff5f8; padding: 14px; border-radius: 7px; }
+.kt1 .session-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.kt1 .session-row p { margin: 0 0 .6rem; }
+.kt1 .session-row label { min-width: 160px; }
+.kt1 .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.kt1 .tabs button { background: white; color: #174e5e; }
+.kt1 .tabs [aria-selected="true"] { background: #174e5e; color: white; }
+.kt1 .work-panel { display: grid; gap: 17px; }
+.kt1 .work-panel > button { justify-self: start; }
+.kt1 .action-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.kt1 .hint { color: #536779; font-size: .88rem; line-height: 1.6; overflow-wrap: anywhere; margin-bottom: 0; }
+.kt1 .delegation { border-top: 1px solid #d4dde3; padding-top: 8px; }
+.kt1 .checkbox { display: flex; align-items: center; margin: 15px 0; }
+.kt1 .checkbox input { width: auto; }
+.kt1 .result { background: #122c38; color: #e8f2f5; padding: 18px; border-radius: 9px; }
+.kt1 .result h3 { font-size: 1rem; margin-top: 0; }
+.kt1 .result pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .86rem; line-height: 1.6; }
+@media (max-width: 560px) {
+  .kt1 { padding: 16px; }
+  .kt1 .kt1-heading { display: block; }
+  .kt1 .badge { display: inline-block; margin-top: 8px; }
+  .kt1 .session-row { align-items: stretch; }
+  .kt1 .session-row label { width: 100%; }
+  .kt1 .tabs button { flex: 1; font-size: .85rem; }
+}
