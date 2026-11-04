@@ -1,109 +1,52 @@
+# Team 20 – LAB-02 / LAB-06 Persistence
 
-# T20 - Laboratory Persistence
+## What we did
 
-## Owner
-Team 20 - Person 2
+Our task was to save laboratory metadata and prerequisites in PostgreSQL using EF Core.
 
-## Requirements
-- LAB-02: Persistent storage of laboratory metadata.
-- LAB-06: Persistent storage of laboratory prerequisites.
+At first, our code was inside `Platform.Authoring`. After merging the latest `main`, we moved it to a separate project called `Platform.LaboratoryPersistence` so it doesn't interfere with Team 11's work.
 
-## Architecture
-- Module: Platform.Authoring
-- ORM: Entity Framework Core 10
-- Database: PostgreSQL 17
-- Schema: authoring
-- Dependency injection: AddAuthoringModule()
+We also updated the code to use the existing models from other teams.
 
-## Database tables
+## Integration
 
-### authoring.laboratories
-- Id: UUID, primary key
-- Title: varchar(120), required
-- Goal: varchar(2000), required
-- Difficulty: varchar(30), required
-- Type: varchar(50), required
-- Tags: PostgreSQL text[], required
+- **LAB-01:** We use the existing `Laboratory` model and `ILaboratoryRepository` interface. Our PostgreSQL repository supports saving, loading and updating laboratories, as well as revisions.
+- **LAB-02:** We use the existing `LaboratoryMetadata` model. Metadata is saved using the same laboratory ID.
+- **LAB-06:** Prerequisites are saved in PostgreSQL. The database prevents duplicate relationships, nonexistent references and direct self-references.
+- **Team 11:** Our code is now separate from `Platform.Authoring`, so we don't change their existing models.
 
-### authoring.lab_prerequisites
-- LaboratoryId: UUID, foreign key
-- PrerequisiteLabId: UUID, foreign key
-- Composite primary key: (LaboratoryId, PrerequisiteLabId)
-- Foreign keys reference authoring.laboratories
-- Self-references are prohibited
-- Deletion of referenced laboratories is restricted
+The integration still needs to be confirmed with Teams 11 and 14.
 
-## Application contract
+## Database
 
-Interface:
-Platform.Authoring.Application.ILaboratoryRepository
+We use PostgreSQL 17 and EF Core 10.
 
-Data model:
-Platform.Authoring.Application.Models.LaboratoryData
+Tables:
+- `authoring.laboratories`
+- `authoring.lab_prerequisites`
+- `authoring.lab_revisions`
 
-Supported operations:
-- GetByIdAsync()
-- AddAsync()
-- UpdateAsync()
-- AddPrerequisiteAsync()
-- RemovePrerequisiteAsync()
-- GetPrerequisiteIdsAsync()
+We kept the original migration and added `AlignLaboratoryPersistence` for the new fields and revisions.
 
-Infrastructure implementation:
-Platform.Authoring.Infrastructure.Persistence.LaboratoryRepository
+Both migrations were successfully applied locally.
 
-## Database migrations
+## Testing
 
-Migration:
-InitialLaboratoryPersistence
+| Test | Result |
+|---|---|
+| Backend build | Passed |
+| Backend tests | 453 passed, 24 skipped |
+| PostgreSQL tests | 9/9 passed |
+| EF Core migrations | Passed |
 
-EF Core context:
-AuthoringDbContext
+All tests that ran passed. PostgreSQL integration tests were tested locally against a real database.
 
-Migrations are stored under:
-Infrastructure/Persistence/Migrations
+## Remaining work
 
-## Integration tests
+- Confirm integration with Teams 11 and 14.
+- Connect the storage interfaces to the application services.
+- Add indirect cycle detection for prerequisites.
+- Check migration handling for databases with existing data.
+- Set up PostgreSQL tests in GitHub Actions.
 
-Tests use NUnit and a real PostgreSQL database.
-
-Verified scenarios:
-- PostgreSQL connection
-- Laboratory creation and retrieval
-- Laboratory metadata updates
-- Stable laboratory identifiers
-- Prerequisite persistence and removal
-- Prevention of direct self-dependencies
-- Rejection of duplicate prerequisites
-- Rejection of nonexistent prerequisite references
-
-## Responsibilities and limitations
-
-Persistence is responsible for storing and retrieving data.
-
-Business validation, authorization, cycle detection,
-and student unlocking rules are outside this component.
-
-Difficulty values are currently stored as strings.
-Domain owners must define valid difficulty values.
-
-Database constraint violations are surfaced as
-EF Core exceptions. Callers must handle these errors.
-
-After a failed SaveChangesAsync operation, a DbContext
-may contain tracked entities in an invalid state.
-Use a fresh context or explicitly recover its state.
-
-## Handoff
-
-Other team members should use ILaboratoryRepository
-and LaboratoryData instead of accessing EF Core entities
-or DbContext directly.
-
-The repository is registered through AddAuthoringModule().
-
-ConnectionStrings:Authoring must be configured locally.
-Secrets must not be committed to Git.
-
-The initial migration must be applied before using
-the repository against a new PostgreSQL database.
+The persistence part works locally, but some integration work is still needed.

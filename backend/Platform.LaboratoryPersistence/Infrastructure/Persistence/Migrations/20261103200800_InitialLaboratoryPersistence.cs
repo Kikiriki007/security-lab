@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Platform.Authoring.Infrastructure.Persistence.Migrations
+namespace Platform.LaboratoryPersistence.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
     public partial class InitialLaboratoryPersistence : Migration

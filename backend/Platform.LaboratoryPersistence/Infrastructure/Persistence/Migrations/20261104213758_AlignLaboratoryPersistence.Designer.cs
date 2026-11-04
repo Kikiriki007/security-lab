@@ -6,15 +6,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Platform.Authoring.Infrastructure.Persistence;
+using Platform.LaboratoryPersistence.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace Platform.Authoring.Infrastructure.Persistence.Migrations
+namespace Platform.LaboratoryPersistence.Infrastructure.Persistence.Migrations
 {
-    [DbContext(typeof(AuthoringDbContext))]
-    [Migration("20261103200800_InitialLaboratoryPersistence")]
-    partial class InitialLaboratoryPersistence
+    [DbContext(typeof(LaboratoryDbContext))]
+    [Migration("20261104213758_AlignLaboratoryPersistence")]
+    partial class AlignLaboratoryPersistence
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -27,7 +27,7 @@ namespace Platform.Authoring.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Platform.Authoring.Infrastructure.Persistence.Entities.LabPrerequisiteRecord", b =>
+            modelBuilder.Entity("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LabPrerequisiteRecord", b =>
                 {
                     b.Property<Guid>("LaboratoryId")
                         .HasColumnType("uuid");
@@ -45,20 +45,51 @@ namespace Platform.Authoring.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Platform.Authoring.Infrastructure.Persistence.Entities.LaboratoryRecord", b =>
+            modelBuilder.Entity("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LabRevisionRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("LaboratoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LaboratoryId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("lab_revisions", "authoring", t =>
+                        {
+                            t.HasCheckConstraint("CK_lab_revisions_positive_number", "\"Number\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LaboratoryRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Difficulty")
-                        .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
                     b.Property<string>("Goal")
-                        .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
 
                     b.PrimitiveCollection<List<string>>("Tags")
                         .IsRequired()
@@ -66,11 +97,10 @@ namespace Platform.Authoring.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Type")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -79,15 +109,15 @@ namespace Platform.Authoring.Infrastructure.Persistence.Migrations
                     b.ToTable("laboratories", "authoring");
                 });
 
-            modelBuilder.Entity("Platform.Authoring.Infrastructure.Persistence.Entities.LabPrerequisiteRecord", b =>
+            modelBuilder.Entity("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LabPrerequisiteRecord", b =>
                 {
-                    b.HasOne("Platform.Authoring.Infrastructure.Persistence.Entities.LaboratoryRecord", "Laboratory")
+                    b.HasOne("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LaboratoryRecord", "Laboratory")
                         .WithMany("Prerequisites")
                         .HasForeignKey("LaboratoryId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Platform.Authoring.Infrastructure.Persistence.Entities.LaboratoryRecord", "PrerequisiteLab")
+                    b.HasOne("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LaboratoryRecord", "PrerequisiteLab")
                         .WithMany()
                         .HasForeignKey("PrerequisiteLabId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -98,9 +128,22 @@ namespace Platform.Authoring.Infrastructure.Persistence.Migrations
                     b.Navigation("PrerequisiteLab");
                 });
 
-            modelBuilder.Entity("Platform.Authoring.Infrastructure.Persistence.Entities.LaboratoryRecord", b =>
+            modelBuilder.Entity("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LabRevisionRecord", b =>
+                {
+                    b.HasOne("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LaboratoryRecord", "Laboratory")
+                        .WithMany("Revisions")
+                        .HasForeignKey("LaboratoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Laboratory");
+                });
+
+            modelBuilder.Entity("Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities.LaboratoryRecord", b =>
                 {
                     b.Navigation("Prerequisites");
+
+                    b.Navigation("Revisions");
                 });
 #pragma warning restore 612, 618
         }

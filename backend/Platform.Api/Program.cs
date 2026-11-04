@@ -1,5 +1,7 @@
-using Platform.Authoring.Composition;
 using Platform.Api.Modules.Kt1;
+using Platform.Api.Modules.Laboratories.Application;
+using Platform.Api.Modules.Laboratories.Infrastructure;
+using Platform.LaboratoryPersistence.Composition;
 using Platform.Api.Modules.Laboratories;
 
 using Platform.Access.Composition;
@@ -34,9 +36,6 @@ if (kt1Enabled) builder.Services.AddCourseworkKt1();
 // IDN-01: registracija naloga
 builder.Services.AddIdentityModule();
 
-// Tim 20: perzistencija laboratorija
-builder.Services.AddAuthoringModule();
-
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddSingleton<IRequestSubjectResolver, DevelopmentSubjectResolver>();
@@ -64,19 +63,46 @@ builder.Services.AddSingleton<IdentityAccessDecision, AdminOnlyAccessDecision>()
 builder.Services.AddScoped<ChangeAccountStatus>();
 builder.Services.AddScoped<LoginAccount>();
 
+
 if (builder.Environment.IsDevelopment())
 {
-    builder.Services.AddScoped<IIdentityContext, StubIdentityContext>();
-    builder.Services.AddSingleton<ISessionManager, DevAlwaysActiveSessionManager>();
+    builder.Services.AddScoped<
+        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Services.Identity.StubIdentityContext>();
+
+    builder.Services.AddSingleton<
+        ISessionManager,
+        DevAlwaysActiveSessionManager>();
 }
 else
 {
-    builder.Services.AddScoped<IIdentityContext, AnonymousIdentityContext>();
-    builder.Services.AddSingleton<ISessionManager, NoOpSessionRevoker>();
+    builder.Services.AddScoped<
+        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Services.Identity.AnonymousIdentityContext>();
+
+    builder.Services.AddSingleton<
+        ISessionManager,
+        NoOpSessionRevoker>();
 }
+
 
 // Laboratories modul
 builder.Services.AddLaboratories(builder.Environment);
+// Use the official LAB-01 repository contract. Never silently persist to memory in production.
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Authoring")))
+{
+    builder.Services.AddLaboratoryPersistence(builder.Configuration);
+    builder.Services.AddScoped<ILaboratoryRepository, PostgresLaboratoryRepository>();
+}
+else if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<ILaboratoryRepository, InMemoryLaboratoryRepository>();
+}
+else
+{
+    // Keep unrelated API routes available, but never silently write laboratories to memory.
+    builder.Services.AddSingleton<ILaboratoryRepository, UnavailableLaboratoryRepository>();
+}
 
 // Kreiranje aplikacije
 var app = builder.Build();

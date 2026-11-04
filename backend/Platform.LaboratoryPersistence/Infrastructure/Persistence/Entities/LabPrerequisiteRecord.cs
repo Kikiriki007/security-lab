@@ -1,5 +1,5 @@
 
-namespace Platform.Authoring.Infrastructure.Persistence.Entities;
+namespace Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities;
 
 public sealed class LabPrerequisiteRecord
 {

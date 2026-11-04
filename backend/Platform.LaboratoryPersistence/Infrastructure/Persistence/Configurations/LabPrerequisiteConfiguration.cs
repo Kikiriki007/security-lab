@@ -1,9 +1,9 @@
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Platform.Authoring.Infrastructure.Persistence.Entities;
+using Platform.LaboratoryPersistence.Infrastructure.Persistence.Entities;
 
-namespace Platform.Authoring.Infrastructure.Persistence.Configurations;
+namespace Platform.LaboratoryPersistence.Infrastructure.Persistence.Configurations;
 
 public sealed class LabPrerequisiteConfiguration
     : IEntityTypeConfiguration<LabPrerequisiteRecord>
