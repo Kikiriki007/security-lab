@@ -13,6 +13,7 @@ public static class LocalizationErrorCodes
     public const string InvalidTitle = "INVALID_TITLE";
     public const string InvalidDescription = "INVALID_DESCRIPTION";
     public const string InvalidInstructions = "INVALID_INSTRUCTIONS";
+    public const string Forbidden = "FORBIDDEN";
     public const string NotFound = "NOT_FOUND";
     public const string Conflict = "CONFLICT";
 }
