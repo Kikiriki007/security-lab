@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Platform.Access.Application.Services;
+using Platform.Access.Application.Options;
 using Platform.Access.Contracts;
 using Platform.Access.Domain.Constants;
 using Platform.Access.Infrastructure.Auditing;
@@ -14,7 +15,9 @@ namespace Platform.Access.Composition;
 public static class AccessServiceCollectionExtensions
 {
     public static IServiceCollection AddAccessControl(this IServiceCollection services)
-    {
+    {   
+        services.TryAddSingleton(new AccessDecisionOptions());
+        services.TryAddSingleton(new AccessConfigurationOptions());
         services.AddSingleton<InMemoryActionCatalog>();
         services.AddSingleton<IActionCatalog>(sp => sp.GetRequiredService<InMemoryActionCatalog>());
         services.TryAddSingleton<IMembershipReader, EmptyMembershipReader>();
@@ -40,6 +43,7 @@ public static class AccessServiceCollectionExtensions
         services.AddSingleton<IAccessPolicyRegistry>(sp => sp.GetRequiredService<InMemoryAccessPolicyRegistry>());
         services.AddSingleton<IAccessAuditWriter, NullAccessAuditWriter>();
         services.AddSingleton<IAccessDecision, DefaultDenyAccessDecision>();
+        services.AddHostedService<AccessConfigurationStartupCheck>();
 
         return services;
     }
