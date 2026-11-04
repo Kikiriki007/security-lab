@@ -1,75 +1,122 @@
-using System.Collections.Frozen;
-using System.Text.Json;
+using Platform.Audit.Contracts;
+using Platform.Audit.Domain;
 
 namespace Platform.Audit.Application;
 
 /// <summary>
-/// Validates and writes a flat, size-limited audit payload. The occurrence time is
-/// always supplied by the server clock; payload timestamps are never used as it.
+/// Validates a draft, enriches it only with trusted server data and UTC time, then
+/// hands the immutable event to append-only storage (AUD-01/S-06).
 /// </summary>
-internal sealed class AuditWriter(TimeProvider timeProvider, IAuditLogStore store)
+internal sealed class AuditWriter : IAuditWriter, ITrustedAuditWriter
 {
-    internal const int MaximumKeyCount = 20;
-    internal const int MaximumPayloadBytes = 2048;
+    private readonly AuditDraftValidator _validator;
+    private readonly IAuditContextProvider _contextProvider;
+    private readonly IAuditEventStore _store;
+    private readonly TimeProvider _timeProvider;
 
-    private readonly TimeProvider _timeProvider =
-        timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
-    private readonly IAuditLogStore _store = store ?? throw new ArgumentNullException(nameof(store));
+    public AuditWriter(
+        AuditDraftValidator validator,
+        IAuditContextProvider contextProvider,
+        IAuditEventStore store,
+        TimeProvider timeProvider)
+    {
+        _validator = validator ?? throw new ArgumentNullException(nameof(validator));
+        _contextProvider = contextProvider ?? throw new ArgumentNullException(nameof(contextProvider));
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+    }
 
-    public ValueTask WriteAsync(
-        IDictionary<string, object?> payload,
+    public ValueTask<AuditWriteResult> WriteAsync(
+        AuditEventDraft draft,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(payload);
+        ArgumentNullException.ThrowIfNull(draft);
 
-        // Validate and detach from caller-owned mutable state before any side effect.
-        if (payload.Count > MaximumKeyCount)
-            throw InvalidAuditEventException.Create();
+        var context = _contextProvider.GetCurrentContext();
+        return context is null
+            ? ValueTask.FromResult(AuditWriteResult.Rejected(AuditRejectionCode.InvalidContext))
+            : WriteCoreAsync(draft, context, cancellationToken);
+    }
 
-        var snapshot = new Dictionary<string, object?>(payload.Count, StringComparer.Ordinal);
-        foreach (var (key, value) in payload)
-        {
-            if (string.IsNullOrEmpty(key) || !IsAllowedScalar(value))
-                throw InvalidAuditEventException.Create();
+    public ValueTask<AuditWriteResult> WriteAsync(
+        AuditEventDraft draft,
+        AuditContext context,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        ArgumentNullException.ThrowIfNull(context);
 
-            snapshot.Add(key, value);
-        }
+        return WriteCoreAsync(draft, context, cancellationToken);
+    }
 
-        if (JsonSerializer.SerializeToUtf8Bytes(snapshot).Length > MaximumPayloadBytes)
-            throw InvalidAuditEventException.Create();
+    private async ValueTask<AuditWriteResult> WriteCoreAsync(
+        AuditEventDraft draft,
+        AuditContext context,
+        CancellationToken cancellationToken)
+    {
+        // This gate enforces the catalog, outcome/actor rules, detail allowlists,
+        // flat string values, 20-key limit and 2048-byte UTF-8 JSON limit. It runs
+        // before the clock and store so rejected input has no external side effect.
+        var rejection = _validator.Validate(draft, context);
+        if (rejection != AuditRejectionCode.None)
+            return AuditWriteResult.Rejected(rejection);
+
+        if (draft.EventId == Guid.Empty)
+            return AuditWriteResult.Rejected(AuditRejectionCode.EventIdConflict);
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var auditEvent = new AuditLogEntry(
-            _timeProvider.GetUtcNow(),
-            snapshot.ToFrozenDictionary(StringComparer.Ordinal));
+        var eventId = draft.EventId ?? Guid.NewGuid();
+        var occurredAt = _timeProvider.GetUtcNow().ToUniversalTime();
+        var auditEvent = AuditEvent.Create(eventId, occurredAt, draft, context);
 
-        return _store.AppendAsync(auditEvent, cancellationToken);
+        try
+        {
+            var storeResult = await _store
+                .AppendAsync(auditEvent, cancellationToken)
+                .ConfigureAwait(false);
+
+            return storeResult switch
+            {
+                AuditStoreWriteResult.Recorded or AuditStoreWriteResult.AlreadyRecorded =>
+                    AuditWriteResult.Recorded(eventId),
+                AuditStoreWriteResult.EventIdConflict =>
+                    AuditWriteResult.Rejected(AuditRejectionCode.EventIdConflict),
+                _ => AuditWriteResult.Unavailable()
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Never copy storage errors, actor data or rejected details into the result.
+            return AuditWriteResult.Unavailable();
+        }
     }
-
-    private static bool IsAllowedScalar(object? value) => value is
-        string or int or long or double or bool or DateTime or Guid;
 }
 
-/// <summary>A safe validation failure which deliberately contains no rejected data.</summary>
-internal sealed class InvalidAuditEventException : Exception
+/// <summary>
+/// Supplies actor and correlation data from trusted server infrastructure. An
+/// implementation must not construct this context from an HTTP body or query string.
+/// </summary>
+internal interface IAuditContextProvider
 {
-    private const string SafeMessage = "The audit event payload is invalid.";
-
-    private InvalidAuditEventException() : base(SafeMessage)
-    {
-    }
-
-    internal static InvalidAuditEventException Create() => new();
+    AuditContext? GetCurrentContext();
 }
 
-/// <summary>Immutable value handed to the append-only audit storage boundary.</summary>
-internal sealed record AuditLogEntry(
-    DateTimeOffset OccurredAt,
-    IReadOnlyDictionary<string, object?> Payload);
-
-/// <summary>Minimal append-only storage boundary used by the sanitizer/writer.</summary>
-internal interface IAuditLogStore
+/// <summary>Append-only persistence boundary for immutable audit events.</summary>
+internal interface IAuditEventStore
 {
-    ValueTask AppendAsync(AuditLogEntry auditEvent, CancellationToken cancellationToken = default);
+    ValueTask<AuditStoreWriteResult> AppendAsync(
+        AuditEvent auditEvent,
+        CancellationToken cancellationToken = default);
+}
+
+internal enum AuditStoreWriteResult
+{
+    Recorded,
+    AlreadyRecorded,
+    EventIdConflict
 }
