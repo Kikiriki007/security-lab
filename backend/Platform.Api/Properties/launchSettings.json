@@ -1,12 +1,13 @@
 {
   "profiles": {
-    "Platform.Api": {
+    "AccessKt1": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "applicationUrl": "https://localhost:58237;http://localhost:58238"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Kt1Demo__Enabled": "true"
+      }
     }
   }
 }

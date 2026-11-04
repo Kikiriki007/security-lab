@@ -5,3 +5,57 @@ main { max-width: 900px; margin: 8vh auto; padding: 0 24px; }
 h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
 .eyebrow { font-weight: 700; letter-spacing: .12em; color: #315d8a; }
 section { background: white; border: 1px solid #e1e6ed; border-radius: 12px; padding: 22px; margin-top: 32px; }
+form { display: grid; gap: 8px; max-width: 420px; }
+label { font-weight: 600; margin-top: 8px; }
+input { padding: 10px 12px; border: 1px solid #c5cfdb; border-radius: 8px; font: inherit; }
+input:focus-visible, button:focus-visible { outline: 2px solid #315d8a; outline-offset: 2px; }
+button { margin-top: 12px; padding: 10px 14px; border: 0; border-radius: 8px; background: #315d8a; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .6; cursor: not-allowed; }
+.hint { margin: 0; font-size: .875rem; color: #5b6b7f; }
+.result { margin-top: 12px; padding: 10px 12px; border-radius: 8px; }
+.result p { margin: 0 0 4px; }
+.result.ok { background: #e8f5ec; border: 1px solid #9ad0a8; }
+.result.error { background: #fdecec; border: 1px solid #e3a3a3; }
+
+
+/* ACC-04 / ADM-08 simulator styles are scoped to avoid changing other teams' forms. */
+.kt1 button, .kt1 input, .kt1 select, .kt1 textarea { font: inherit; }
+.kt1 button { margin-top: 0; background: #174e5e; border: 1px solid #174e5e; color: white; padding: .7rem 1rem; border-radius: 7px; cursor: pointer; }
+.kt1 button:hover:not(:disabled) { background: #103b48; }
+.kt1 button.secondary { background: white; color: #174e5e; }
+.kt1 button:disabled { opacity: .48; cursor: default; }
+.kt1 button:focus-visible, .kt1 input:focus-visible, .kt1 textarea:focus-visible, .kt1 select:focus-visible { outline: 3px solid #d89c24; outline-offset: 2px; }
+.kt1 fieldset { border: 1px solid #d4dde3; border-radius: 9px; padding: 18px; margin: 22px 0; min-width: 0; }
+.kt1 legend { font-weight: 650; padding: 0 8px; }
+.kt1 label { display: grid; gap: 7px; font-size: .94rem; font-weight: 500; margin-top: 0; }
+.kt1 input, .kt1 select, .kt1 textarea { max-width: 100%; width: 100%; background: #fff; color: #223045; border: 1px solid #aebfc9; border-radius: 6px; padding: .65rem; }
+.kt1 textarea { resize: vertical; }
+.kt1 .kt1-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.kt1 .kt1-heading h2 { margin: .4rem 0; }
+.kt1 .kt1-heading .eyebrow { margin: 0; font-size: .8rem; }
+.kt1 .badge { background: #e3f2ef; padding: .5rem .7rem; color: #1b5c54; border-radius: 20px; white-space: nowrap; font-size: .8rem; }
+.kt1 .notice { line-height: 1.6; background: #eff5f8; padding: 14px; border-radius: 7px; }
+.kt1 .session-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.kt1 .session-row p { margin: 0 0 .6rem; }
+.kt1 .session-row label { min-width: 160px; }
+.kt1 .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.kt1 .tabs button { background: white; color: #174e5e; }
+.kt1 .tabs [aria-selected="true"] { background: #174e5e; color: white; }
+.kt1 .work-panel { display: grid; gap: 17px; }
+.kt1 .work-panel > button { justify-self: start; }
+.kt1 .action-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.kt1 .hint { color: #536779; font-size: .88rem; line-height: 1.6; overflow-wrap: anywhere; margin-bottom: 0; }
+.kt1 .delegation { border-top: 1px solid #d4dde3; padding-top: 8px; }
+.kt1 .checkbox { display: flex; align-items: center; margin: 15px 0; }
+.kt1 .checkbox input { width: auto; }
+.kt1 .result { background: #122c38; color: #e8f2f5; padding: 18px; border-radius: 9px; }
+.kt1 .result h3 { font-size: 1rem; margin-top: 0; }
+.kt1 .result pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .86rem; line-height: 1.6; }
+@media (max-width: 560px) {
+  .kt1 { padding: 16px; }
+  .kt1 .kt1-heading { display: block; }
+  .kt1 .badge { display: inline-block; margin-top: 8px; }
+  .kt1 .session-row { align-items: stretch; }
+  .kt1 .session-row label { width: 100%; }
+  .kt1 .tabs button { flex: 1; font-size: .85rem; }
+}
