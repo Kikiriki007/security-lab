@@ -1,3 +1,4 @@
+
 using NUnit.Framework;
 using Platform.Assignments.Application;
 using Platform.Assignments.Contracts;
@@ -23,7 +24,8 @@ public class StartAttemptServiceTests
         var attemptStore = new FakeAttemptStore(2);
 
         var service = new StartAttemptService(
-            repository, attemptStore);
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.StartAttemptAsync(
@@ -35,7 +37,6 @@ public class StartAttemptServiceTests
             Is.EqualTo("Maximum number of attempts reached."));
     }
 
-    
     [Test]
     public async Task StartAttempt_WhenLimitNotReached_Succeeds()
     {
@@ -51,7 +52,8 @@ public class StartAttemptServiceTests
         var attemptStore = new FakeAttemptStore(1);
 
         var service = new StartAttemptService(
-            repository, attemptStore);
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var attemptId = await service.StartAttemptAsync(
             assignment.Id,
@@ -61,7 +63,6 @@ public class StartAttemptServiceTests
         Assert.That(attemptId, Is.Not.EqualTo(Guid.Empty));
     }
 
-    
     [Test]
     public void StartAttempt_WhenAssignmentNotFound_Throws()
     {
@@ -77,7 +78,8 @@ public class StartAttemptServiceTests
         var attemptStore = new FakeAttemptStore(0);
 
         var service = new StartAttemptService(
-            repository, attemptStore);
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<KeyNotFoundException>(
             async () => await service.StartAttemptAsync(
@@ -88,7 +90,6 @@ public class StartAttemptServiceTests
         Assert.That(exception!.Message,
             Is.EqualTo("Assignment not found."));
     }
-
 
     [Test]
     public void StartAttempt_WhenDeadlineExpired_Throws()
@@ -105,7 +106,8 @@ public class StartAttemptServiceTests
         var attemptStore = new FakeAttemptStore(0);
 
         var service = new StartAttemptService(
-            repository, attemptStore);
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.StartAttemptAsync(
@@ -117,8 +119,6 @@ public class StartAttemptServiceTests
             Is.EqualTo("Assignment is not available."));
     }
 
-
-    
     [Test]
     public void StartAttempt_WhenAssignmentArchived_Throws()
     {
@@ -136,7 +136,8 @@ public class StartAttemptServiceTests
         var attemptStore = new FakeAttemptStore(0);
 
         var service = new StartAttemptService(
-            repository, attemptStore);
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.StartAttemptAsync(
@@ -148,7 +149,6 @@ public class StartAttemptServiceTests
             Is.EqualTo("Assignment is not available."));
     }
 
-    
     [Test]
     public async Task StartAttempt_WhenRequestRepeated_ReturnsSameAttempt()
     {
@@ -164,7 +164,8 @@ public class StartAttemptServiceTests
         var attemptStore = new FakeAttemptStore(0);
 
         var service = new StartAttemptService(
-            repository, attemptStore);
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var requestId = Guid.NewGuid();
 
@@ -178,6 +179,35 @@ public class StartAttemptServiceTests
         Assert.That(attemptStore.AttemptCount, Is.EqualTo(1));
     }
 
+    [Test]
+    public void StartAttempt_WhenAccessDenied_Throws()
+    {
+        var assignment = new Assignment(
+            Guid.NewGuid(),
+            "course-oib",
+            "revision-1",
+            null,
+            DateTimeOffset.UtcNow.AddDays(1),
+            3);
+
+        var repository = new FakeAssignmentRepository(assignment);
+        var attemptStore = new FakeAttemptStore(0);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(false));
+
+        var exception = Assert.ThrowsAsync<UnauthorizedAccessException>(
+            async () => await service.StartAttemptAsync(
+                assignment.Id,
+                "student-1",
+                Guid.NewGuid()));
+
+        Assert.That(exception!.Message,
+            Is.EqualTo("Access denied."));
+
+        Assert.That(attemptStore.AttemptCount, Is.EqualTo(0));
+    }
 
     private sealed class FakeAssignmentRepository(
         Assignment assignment) : IAssignmentRepository
@@ -206,7 +236,6 @@ public class StartAttemptServiceTests
             => throw new NotImplementedException();
     }
 
-    
     private sealed class FakeAttemptStore(
         int existingAttempts) : IAttemptStore
     {
@@ -246,4 +275,16 @@ public class StartAttemptServiceTests
         }
     }
 
+    private sealed class FakeStartAttemptAuthorization(bool allow)
+        : IStartAttemptAuthorization
+    {
+        public ValueTask<bool> CanStartAsync(
+            string studentId,
+            Guid assignmentId,
+            string courseId,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(allow);
+        }
+    }
 }

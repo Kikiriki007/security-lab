@@ -9,12 +9,16 @@ public sealed class StartAttemptService
     private readonly IAssignmentRepository _assignmentRepository;
     private readonly IAttemptStore _attemptStore;
 
+    private readonly IStartAttemptAuthorization _authorization;
+
     public StartAttemptService(
-    IAssignmentRepository assignmentRepository,
-    IAttemptStore attemptStore)
+        IAssignmentRepository assignmentRepository,
+        IAttemptStore attemptStore,
+        IStartAttemptAuthorization authorization)
     {
         _assignmentRepository = assignmentRepository;
         _attemptStore = attemptStore;
+        _authorization = authorization;
     }
 
     private async ValueTask<Assignment?> LoadAssignmentAsync(
@@ -47,6 +51,20 @@ public sealed class StartAttemptService
         if (assignment == null)
         {
             throw new KeyNotFoundException("Assignment not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(studentId))
+        {
+            throw new UnauthorizedAccessException("Access denied.");
+        }
+
+        if (!await _authorization.CanStartAsync(
+            studentId,
+            assignment.Id,
+            assignment.CourseId,
+            cancellationToken))
+        {
+            throw new UnauthorizedAccessException("Access denied.");
         }
 
         if (!IsAssignmentAvailable(assignment, DateTimeOffset.UtcNow))
