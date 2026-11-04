@@ -15,6 +15,25 @@ flowchart LR
   Result -->|Authorized view| Student
 ```
 
+## Identity login flow (IDN-02 / IDN-03)
+
+```mermaid
+flowchart LR
+  User[User] -->|Email and password| Login[LoginController]
+  Login --> Verify[ICredentialAuthenticator, IDN-02]
+  Verify -->|Invalid or unavailable| Reject[Generic rejection]
+  Verify -->|Verified account id| Status[LoginAccount status gate, IDN-03]
+  Status -->|Read current status| Accounts[(IAccountRepository)]
+  Status -->|BLOCKED / ARCHIVED| Message[Status-specific 403 response]
+  Status -->|ACTIVE| Issue[ISessionIssuer, IDN-02]
+  Issue -->|Session token| Login
+  Reject --> Login
+  Message --> Login
+```
+
+The API checks status only after credentials are valid. The current credential
+and session adapters fail closed until IDN-02 replaces them.
+
 ## Component DFD requirements
 
 1. Input and output data, external actors, and request initiators.
