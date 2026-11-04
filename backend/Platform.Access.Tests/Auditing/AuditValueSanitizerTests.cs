@@ -53,6 +53,35 @@ public sealed class AuditValueSanitizerTests
         Assert.That(char.IsHighSurrogate(cleaned[^1]), Is.False);
     }
 
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_LoneSurrogates_AreRemoved()
+    {
+        Assert.That(AuditValueSanitizer.Clean("a" + (char)0xD800 + "b", 64), Is.EqualTo("ab"), "lone high surrogate");
+        Assert.That(AuditValueSanitizer.Clean("a" + (char)0xDC00 + "b", 64), Is.EqualTo("ab"), "lone low surrogate");
+        Assert.That(AuditValueSanitizer.Clean("a" + (char)0xDC00 + (char)0xD800 + "b", 64), Is.EqualTo("ab"), "reversed pair");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_ValidSurrogatePair_IsKept_AndCountsAsTwoCharacters()
+    {
+        var emoji = char.ConvertFromUtf32(0x1F600);
+
+        Assert.That(AuditValueSanitizer.Clean("a" + emoji + "b", 64), Is.EqualTo("a" + emoji + "b"));
+        Assert.That(AuditValueSanitizer.Clean("ab" + emoji, 3), Is.EqualTo("ab"), "a pair is never cut in half");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_InvisibleCharacterOutsideBmp_IsRemoved()
+    {
+        // Tag characters (U+E0000 block) are invisible and live in a surrogate pair.
+        var tag = char.ConvertFromUtf32(0xE0041);
+
+        Assert.That(AuditValueSanitizer.Clean("a" + tag + "b", 64), Is.EqualTo("ab"));
+    }
+
     [TestCase(null)]
     [TestCase("")]
     [Property("RequirementId", "ACC-05")]

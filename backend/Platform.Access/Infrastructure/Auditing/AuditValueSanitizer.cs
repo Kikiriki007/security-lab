@@ -20,9 +20,30 @@ internal static class AuditValueSanitizer
 
         var builder = new StringBuilder(Math.Min(value.Length, maxLength));
 
-        foreach (var ch in value)
+        for (var i = 0; i < value.Length; i++)
         {
-            if (IsUnsafe(ch))
+            var ch = value[i];
+
+            if (char.IsHighSurrogate(ch) && i + 1 < value.Length && char.IsLowSurrogate(value[i + 1]))
+            {
+                // A valid pair is judged as one code point (tag characters are invisible and sit outside the BMP)
+                // and is never cut in half by the length limit.
+                if (!IsUnsafe(CharUnicodeInfo.GetUnicodeCategory(char.ConvertToUtf32(ch, value[i + 1]))))
+                {
+                    if (builder.Length + 2 > maxLength)
+                    {
+                        break;
+                    }
+
+                    builder.Append(ch).Append(value[i + 1]);
+                }
+
+                i++;
+                continue;
+            }
+
+            // A lone surrogate is not valid text: some sinks replace it, others reject the whole record.
+            if (char.IsSurrogate(ch) || char.IsControl(ch) || IsUnsafe(CharUnicodeInfo.GetUnicodeCategory(ch)))
             {
                 continue;
             }
@@ -35,17 +56,12 @@ internal static class AuditValueSanitizer
             builder.Append(ch);
         }
 
-        if (builder.Length > 0 && char.IsHighSurrogate(builder[^1]))
-        {
-            builder.Length--;
-        }
-
         return builder.ToString();
     }
 
-    private static bool IsUnsafe(char ch) =>
-        char.IsControl(ch) ||
-        CharUnicodeInfo.GetUnicodeCategory(ch) is
+    private static bool IsUnsafe(UnicodeCategory category) =>
+        category is
+            UnicodeCategory.Control or
             UnicodeCategory.LineSeparator or
             UnicodeCategory.ParagraphSeparator or
             UnicodeCategory.Format;

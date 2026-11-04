@@ -17,6 +17,7 @@ internal sealed class AccessAuditOptions
         "account.status.change",
         "system.config.manage",
         "results.sensitive.read",
+        "identity.account.create",
     };
 
     /// <summary>Actions whose Allow decisions are audited. Compared ordinally, never normalized.</summary>
@@ -27,6 +28,9 @@ internal sealed class AccessAuditOptions
 
     /// <summary>Window in which repeated identical denials are folded into one record.</summary>
     public TimeSpan DenyAggregationWindow { get; init; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>How often expired denial windows are closed and failed summaries retried, without waiting for a new denial.</summary>
+    public TimeSpan FlushInterval { get; init; } = TimeSpan.FromSeconds(5);
 
     /// <summary>Maximum length of one audited value (same limit as the Audit module detail values).</summary>
     public int MaxValueLength { get; init; } = 64;

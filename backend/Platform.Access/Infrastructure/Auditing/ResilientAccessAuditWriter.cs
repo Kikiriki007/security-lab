@@ -20,7 +20,8 @@ internal sealed partial class ResilientAccessAuditWriter(
     IAccessAuditWriter inner,
     AccessAuditOptions options,
     TimeProvider clock,
-    ILogger<ResilientAccessAuditWriter> logger) : IAccessAuditWriter
+    ILogger<ResilientAccessAuditWriter> logger,
+    AccessAuditMetrics metrics) : IAccessAuditWriter
 {
     private const string FailedReason = "failed";
     private const string TimedOutReason = "timed_out";
@@ -77,16 +78,25 @@ internal sealed partial class ResilientAccessAuditWriter(
 
     private void RaiseAlarm(AccessRequest? request, string reason, string? exceptionType)
     {
+        // Counted first and on its own path: when the logging pipeline is what failed, the record and the
+        // alarm below are both lost, and the counter is the only trace left.
+        metrics.RecordFailure(reason);
+
         try
         {
-            var correlationId = AuditValueSanitizer.Clean(request?.CorrelationId, options.MaxValueLength);
+            // The correlation id comes from the request: validated like in the audit record, never cleaned.
+            var rawCorrelationId = request?.CorrelationId;
+            var correlationId =
+                string.IsNullOrEmpty(rawCorrelationId) ? AccessAuditRecord.NoValue
+                : AuditIdentifier.IsValid(rawCorrelationId, options.MaxValueLength) ? rawCorrelationId
+                : AccessAuditRecord.Invalid;
             var type = AuditValueSanitizer.Clean(exceptionType, options.MaxValueLength);
 
             LogAuditFailure(
                 logger,
                 reason,
                 type.Length == 0 ? AccessAuditRecord.NoValue : type,
-                correlationId.Length == 0 ? AccessAuditRecord.NoValue : correlationId);
+                correlationId);
         }
         catch (Exception)
         {

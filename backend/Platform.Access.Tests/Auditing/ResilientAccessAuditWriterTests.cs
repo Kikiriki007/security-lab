@@ -18,12 +18,20 @@ public sealed class ResilientAccessAuditWriterTests
     private static readonly TimeSpan ShortTimeout = TimeSpan.FromMilliseconds(100);
 
     private CollectingLogger<ResilientAccessAuditWriter> _logger = null!;
+    private TestMetrics _metrics = null!;
 
     [SetUp]
-    public void SetUp() => _logger = new CollectingLogger<ResilientAccessAuditWriter>();
+    public void SetUp()
+    {
+        _logger = new CollectingLogger<ResilientAccessAuditWriter>();
+        _metrics = new TestMetrics();
+    }
+
+    [TearDown]
+    public void TearDown() => _metrics.Dispose();
 
     private ResilientAccessAuditWriter Resilient(IAccessAuditWriter inner, TimeSpan? timeout = null) =>
-        new(inner, new AccessAuditOptions { WriteTimeout = timeout ?? ShortTimeout }, TimeProvider.System, _logger);
+        new(inner, new AccessAuditOptions { WriteTimeout = timeout ?? ShortTimeout }, TimeProvider.System, _logger, _metrics.Metrics);
 
     private sealed class FixedPolicy(bool permitted) : IAccessPolicy
     {
@@ -177,7 +185,11 @@ public sealed class ResilientAccessAuditWriterTests
         await Resilient(new SyncThrowingWriter(new InvalidOperationException()))
             .WriteAsync(request, AccessDecision.Deny(AccessDenialReason.UnknownAction, "x"));
 
-        Assert.That(_logger.Entries.Single().Message.Any(char.IsControl), Is.False);
+        var message = _logger.Entries.Single().Message;
+        Assert.That(message.Any(char.IsControl), Is.False);
+        Assert.That(message, Does.Contain("correlationId=invalid"), "a hostile id is replaced, not cleaned into a plausible one");
+        Assert.That(message, Does.Not.Contain("FORGED"));
+        Assert.That(message, Does.Not.Contain("level=Critical"));
     }
 
     [Test]
@@ -188,11 +200,62 @@ public sealed class ResilientAccessAuditWriterTests
             new SyncThrowingWriter(new InvalidOperationException()),
             new AccessAuditOptions { WriteTimeout = ShortTimeout },
             TimeProvider.System,
-            new ThrowingLogger<ResilientAccessAuditWriter>());
+            new ThrowingLogger<ResilientAccessAuditWriter>(),
+            _metrics.Metrics);
 
         var decision = await Engine(broken).DecideAsync(Request());
 
         Assert.That(decision.Outcome, Is.EqualTo(AccessOutcome.Allow));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_AuditWriteThrows_FailureIsCounted_WithReasonTagOnly()
+    {
+        await Resilient(new SyncThrowingWriter(new InvalidOperationException(Secret)))
+            .WriteAsync(Request(), AccessDecision.Deny(AccessDenialReason.UnknownAction, "corr-1"));
+
+        Assert.That(_metrics.Total, Is.EqualTo(1));
+        Assert.That(_metrics.Reasons, Is.EqualTo(new[] { "failed" }));
+        Assert.That(_metrics.TagKeys, Is.EqualTo(new[] { "reason" }), "no message, actor or correlation id in a metric tag");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_AuditTimeout_IsCounted_AsTimedOut()
+    {
+        await Resilient(new HangingWriter())
+            .WriteAsync(Request(), AccessDecision.Deny(AccessDenialReason.UnknownAction, "corr-1"));
+
+        Assert.That(_metrics.Reasons, Is.EqualTo(new[] { "timed_out" }));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_LoggingPipelineFails_RecordAndAlarmAreLost_ButTheFailureIsStillCounted()
+    {
+        var writer = new ResilientAccessAuditWriter(
+            new SyncThrowingWriter(new InvalidOperationException()),
+            new AccessAuditOptions { WriteTimeout = ShortTimeout },
+            TimeProvider.System,
+            new ThrowingLogger<ResilientAccessAuditWriter>(),
+            _metrics.Metrics);
+
+        Assert.DoesNotThrowAsync(async () =>
+            await writer.WriteAsync(Request(), AccessDecision.Deny(AccessDenialReason.UnknownAction, "corr-1")));
+
+        Assert.That(_metrics.Total, Is.EqualTo(1), "the counter does not depend on the logging pipeline");
+        await Task.CompletedTask;
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_AuditSucceeds_NothingIsCounted()
+    {
+        await Resilient(new TokenRecordingWriter())
+            .WriteAsync(Request(), AccessDecision.Deny(AccessDenialReason.UnknownAction, "corr-1"));
+
+        Assert.That(_metrics.Total, Is.Zero);
     }
 
     [Test]

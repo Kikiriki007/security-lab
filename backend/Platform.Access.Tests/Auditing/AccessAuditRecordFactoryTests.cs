@@ -70,24 +70,110 @@ public sealed class AccessAuditRecordFactoryTests
 
     [Test]
     [Property("RequirementId", "ACC-05")]
-    public void ACC05_ActorWithControlCharacters_IsSanitized()
+    public void ACC05_ActorWithControlCharacters_IsInvalid_NotCleanedIntoAnotherId()
     {
         var record = CreateFactory().Create(
             Request(subject: new SubjectRef("user\r\n-1", AccountState.Active)),
             Denied());
 
-        Assert.That(record.Actor, Is.EqualTo("user-1"));
+        Assert.That(record.Actor, Is.EqualTo(AccessAuditRecord.Invalid), "'user-1' must not be reachable by cleaning");
     }
 
     [Test]
     [Property("RequirementId", "ACC-05")]
-    public void ACC05_LongActor_IsTruncated()
+    public void ACC05_ActorWithInvisibleCharacter_IsInvalid_NotNormalizedToAnotherUser()
     {
+        var admin = Guid.NewGuid().ToString();
+
         var record = CreateFactory().Create(
-            Request(subject: new SubjectRef(new string('x', 5_000), AccountState.Active)),
+            Request(subject: new SubjectRef(admin + (char)0x200B, AccountState.Active)),
             Denied());
 
-        Assert.That(record.Actor, Has.Length.EqualTo(64));
+        Assert.That(record.Actor, Is.EqualTo(AccessAuditRecord.Invalid));
+        Assert.That(record.Actor, Is.Not.EqualTo(admin));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_ActorLongerThanLimit_IsInvalid_NotTruncated()
+    {
+        var sharedPrefix = new string('x', 64);
+
+        var record = CreateFactory().Create(
+            Request(subject: new SubjectRef(sharedPrefix + "-other-user", AccountState.Active)),
+            Denied());
+
+        Assert.That(record.Actor, Is.EqualTo(AccessAuditRecord.Invalid), "a 64 character prefix must not stand for a longer id");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_ActorExactlyAtLimit_IsKept()
+    {
+        var id = new string('x', 64);
+
+        var record = CreateFactory().Create(Request(subject: new SubjectRef(id, AccountState.Active)), Denied());
+
+        Assert.That(record.Actor, Is.EqualTo(id));
+    }
+
+    private static IEnumerable<string> RealisticIdentifiers() =>
+    [
+        "student-1",
+        "d2719a4e-6a0c-4b35-9a7e-0f7a4d1c0b11",
+        "0HNK7SGQ4V9AB:00000001",
+        "abc123",
+        "user.name@example",
+    ];
+
+    [TestCaseSource(nameof(RealisticIdentifiers))]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_RealisticIdentifiers_AreKeptAsTheyAre(string id)
+    {
+        var record = CreateFactory().Create(
+            Request(subject: new SubjectRef(id, AccountState.Active), correlationId: id, resource: new ResourceRef("attempt", id)),
+            Denied());
+
+        Assert.That(record.Actor, Is.EqualTo(id));
+        Assert.That(record.CorrelationId, Is.EqualTo(id));
+        Assert.That(record.Target, Is.EqualTo($"attempt:{id}"));
+    }
+
+    private static IEnumerable<string> HostileValues() =>
+    [
+        "x outcome=allow",
+        "x=y",
+        "a b",
+        "a\tb",
+        "\"quoted\"",
+        "-leading-dash",
+        "abc\n",
+        "lone" + (char)0xD800 + "high",
+        "lone" + (char)0xDC00 + "low",
+        "tag" + char.ConvertFromUtf32(0xE0041),
+        "café",
+        "аdmin",
+    ];
+
+    [TestCaseSource(nameof(HostileValues))]
+    [Property("RequirementId", "ACC-05")]
+    [Property("RequirementId", "AUD-03")]
+    public void ACC05_HostileValue_IsInvalid_InActorCorrelationIdAndTarget(string hostile)
+    {
+        var record = CreateFactory().Create(
+            Request(
+                subject: new SubjectRef(hostile, AccountState.Active),
+                correlationId: hostile,
+                resource: new ResourceRef(hostile, hostile)),
+            Denied());
+
+        Assert.That(record.Actor, Is.EqualTo(AccessAuditRecord.Invalid));
+        Assert.That(record.CorrelationId, Is.EqualTo(AccessAuditRecord.Invalid));
+        Assert.That(record.Target, Is.EqualTo("invalid:invalid"));
+        Assert.That(
+            AllValues(record),
+            Has.None.Matches<string?>(v => v is not null && v.Any(c => char.IsWhiteSpace(c) || c == '=')),
+            "no value can start a second key=value pair in the rendered message");
     }
 
     [Test]
@@ -132,15 +218,42 @@ public sealed class AccessAuditRecordFactoryTests
 
     [Test]
     [Property("RequirementId", "ACC-05")]
-    public void ACC05_ResourceWithControlCharacters_IsSanitizedAndBounded()
+    public void ACC05_ResourceWithControlCharacters_IsInvalid_NotCleaned()
     {
         var record = CreateFactory().Create(
             Request(resource: new ResourceRef("attempt\n", new string('9', 500) + "\r\n")),
             Denied());
 
-        Assert.That(record.Target, Does.StartWith("attempt:"));
-        Assert.That(record.Target, Has.Length.LessThanOrEqualTo(64));
-        Assert.That(record.Target.Any(char.IsControl), Is.False);
+        Assert.That(record.Target, Is.EqualTo("invalid:invalid"));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_ResourceOnlyOnePartInvalid_KeepsTheValidPart()
+    {
+        var record = CreateFactory().Create(Request(resource: new ResourceRef("attempt", "4 2")), Denied());
+
+        Assert.That(record.Target, Is.EqualTo("attempt:invalid"));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_ResourceTooLongTogether_IsInvalid_NotTruncated()
+    {
+        var record = CreateFactory().Create(
+            Request(resource: new ResourceRef(new string('t', 40), new string('9', 40))),
+            Denied());
+
+        Assert.That(record.Target, Is.EqualTo(AccessAuditRecord.Invalid));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_ResourceWithEmptyParts_UsesDashPerPart()
+    {
+        var record = CreateFactory().Create(Request(resource: new ResourceRef("", "")), Denied());
+
+        Assert.That(record.Target, Is.EqualTo("-:-"));
     }
 
     [TestCase(AccessDenialReason.Unauthenticated, "unauthenticated")]
@@ -230,11 +343,20 @@ public sealed class AccessAuditRecordFactoryTests
     [Test]
     [Property("RequirementId", "ACC-05")]
     [Property("RequirementId", "OPS-08")]
-    public void ACC05_CorrelationId_IsCarriedSanitized()
+    public void ACC05_CorrelationId_WithControlCharacters_IsInvalid_NotCleaned()
     {
         var record = CreateFactory().Create(Request(correlationId: "abc\r\n123"), Denied());
 
-        Assert.That(record.CorrelationId, Is.EqualTo("abc123"));
+        Assert.That(record.CorrelationId, Is.EqualTo(AccessAuditRecord.Invalid));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_CorrelationId_LongerThanLimit_IsInvalid_NotTruncated()
+    {
+        var record = CreateFactory().Create(Request(correlationId: new string('c', 65)), Denied());
+
+        Assert.That(record.CorrelationId, Is.EqualTo(AccessAuditRecord.Invalid));
     }
 
     [Test]

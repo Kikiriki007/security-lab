@@ -26,8 +26,9 @@ public sealed class AggregatingAccessAuditSinkTests
         string actor = "user-1",
         string action = "lab.read",
         string reason = "no_policy",
-        string correlationId = "corr-1") =>
-        new(_clock.GetUtcNow(), AccessAuditRecord.DeniedEventType, actor, action, "-", "deny",
+        string correlationId = "corr-1",
+        string target = "-") =>
+        new(_clock.GetUtcNow(), AccessAuditRecord.DeniedEventType, actor, action, target, "deny",
             correlationId, reason, null, "v0");
 
     private AccessAuditRecord PrivilegedAllowed() =>
@@ -89,21 +90,63 @@ public sealed class AggregatingAccessAuditSinkTests
     [TestCase("actor")]
     [TestCase("action")]
     [TestCase("reason")]
+    [TestCase("target")]
     [Property("RequirementId", "ACC-05")]
-    public async Task ACC05_DifferentActorActionOrReason_NotMerged(string differs)
+    public async Task ACC05_DifferentActorActionReasonOrTarget_NotMerged(string differs)
     {
         var sink = Sink();
-        await sink.WriteAsync(Denied());
+        await sink.WriteAsync(Denied(target: "lab:1"));
 
         await sink.WriteAsync(differs switch
         {
-            "actor" => Denied(actor: "user-2"),
-            "action" => Denied(action: "lab.write"),
-            _ => Denied(reason: "unknown_action"),
+            "actor" => Denied(actor: "user-2", target: "lab:1"),
+            "action" => Denied(action: "lab.write", target: "lab:1"),
+            "reason" => Denied(reason: "unknown_action", target: "lab:1"),
+            _ => Denied(target: "lab:2"),
         });
 
         Assert.That(_inner.Records, Has.Count.EqualTo(2));
         Assert.That(_inner.Records.Select(r => r.Count), Has.All.EqualTo(1));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_ProbingManyTargets_EveryTargetIsAuditedOnce()
+    {
+        var sink = Sink();
+
+        // Same actor, action and reason against ten different resources, each tried twice.
+        for (var round = 0; round < 2; round++)
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                await sink.WriteAsync(Denied(target: $"attempt:{i}", correlationId: $"corr-{round}-{i}"));
+            }
+        }
+
+        Assert.That(_inner.Records.Select(r => r.Target), Is.EquivalentTo(Enumerable.Range(0, 10).Select(i => $"attempt:{i}")),
+            "no target is hidden behind another one");
+
+        _clock.Advance(Window);
+        await sink.FlushExpiredAsync();
+
+        var summaries = _inner.Records.Where(r => r.Count == 1 && r.CorrelationId.StartsWith("corr-1-")).ToList();
+        Assert.That(summaries.Select(r => r.Target), Is.EquivalentTo(Enumerable.Range(0, 10).Select(i => $"attempt:{i}")),
+            "each target keeps its own held-back repeat");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_SameTarget_StillAggregated()
+    {
+        var sink = Sink();
+
+        for (var i = 0; i < 5; i++)
+        {
+            await sink.WriteAsync(Denied(target: "lab:1"));
+        }
+
+        Assert.That(_inner.Records, Has.Count.EqualTo(1));
     }
 
     [Test]
@@ -192,7 +235,7 @@ public sealed class AggregatingAccessAuditSinkTests
 
     [Test]
     [Property("RequirementId", "ACC-05")]
-    public async Task ACC05_KeyLimit_NoRecordsLost()
+    public async Task ACC05_KeyLimit_NothingIsLost_ExcessIsFoldedIntoOverflowCount()
     {
         var sink = Sink(maxKeys: 2);
 
@@ -201,12 +244,182 @@ public sealed class AggregatingAccessAuditSinkTests
             await sink.WriteAsync(Denied(actor: $"user-{i}"));
         }
 
-        Assert.That(_inner.Records, Has.Count.EqualTo(5), "keys over the limit are written, not tracked and not dropped");
+        Assert.That(_inner.Records, Has.Count.EqualTo(3), "two tracked keys plus the first record of the overflow window");
 
-        // Repeats of an untracked key are written too instead of being silently dropped.
-        await sink.WriteAsync(Denied(actor: "user-4"));
-        await sink.WriteAsync(Denied(actor: "user-4"));
-        Assert.That(_inner.Records, Has.Count.EqualTo(7));
+        await sink.FlushAllAsync();
+
+        Assert.That(_inner.Records.Sum(r => r.Count), Is.EqualTo(5), "every denial is accounted for");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_KeyTableFull_FloodOfDistinctActors_ProducesBoundedRecords()
+    {
+        var sink = Sink(maxKeys: 2);
+
+        for (var i = 0; i < 500; i++)
+        {
+            await sink.WriteAsync(Denied(actor: $"user-{i}"));
+        }
+
+        Assert.That(_inner.Records, Has.Count.EqualTo(3), "the other 497 denials are only counted");
+
+        await sink.FlushAllAsync();
+
+        Assert.That(_inner.Records, Has.Count.EqualTo(4), "plus one overflow summary");
+        Assert.That(_inner.Records.Sum(r => r.Count), Is.EqualTo(500));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_OverflowSummary_HidesIndividualActorsButKeepsReasonAndCount()
+    {
+        var sink = Sink(maxKeys: 1);
+
+        // a is tracked, b opens the overflow window (written), c and d are held back.
+        foreach (var actor in new[] { "a", "b", "c", "d" })
+        {
+            await sink.WriteAsync(Denied(actor: actor));
+        }
+
+        await sink.FlushAllAsync();
+
+        var summary = _inner.Records.Single(r => r.Count == 2);
+        Assert.That(summary.Actor, Is.EqualTo(AccessAuditRecord.NoValue), "a summary of many actors names none of them");
+        Assert.That(summary.Action, Is.EqualTo(AccessAuditRecord.NoValue));
+        Assert.That(summary.Target, Is.EqualTo(AccessAuditRecord.NoValue));
+        Assert.That(summary.CorrelationId, Is.EqualTo(AccessAuditRecord.NoValue));
+        Assert.That(summary.DenialReason, Is.EqualTo("no_policy"));
+        Assert.That(summary.EventType, Is.EqualTo(AccessAuditRecord.DeniedEventType));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_Overflow_IsCountedPerDenialReason()
+    {
+        var sink = Sink(maxKeys: 2);
+        await sink.WriteAsync(Denied(actor: "a1"));
+        await sink.WriteAsync(Denied(actor: "a2"));
+
+        foreach (var actor in new[] { "b", "c", "c2" })
+        {
+            await sink.WriteAsync(Denied(actor: actor, reason: "no_policy"));
+        }
+
+        foreach (var actor in new[] { "d", "e", "e2" })
+        {
+            await sink.WriteAsync(Denied(actor: actor, reason: "unknown_action"));
+        }
+
+        await sink.FlushAllAsync();
+
+        var summaries = _inner.Records.Where(r => r.Count == 2).ToList();
+        Assert.That(summaries.Select(r => r.DenialReason), Is.EquivalentTo(new[] { "no_policy", "unknown_action" }));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_KeyTableFull_TrackedKeysStillAggregateWithTheirOwnActor()
+    {
+        var sink = Sink(maxKeys: 1);
+        await sink.WriteAsync(Denied(actor: "a"));
+        await sink.WriteAsync(Denied(actor: "b"));
+        await sink.WriteAsync(Denied(actor: "c"));
+        for (var i = 0; i < 3; i++)
+        {
+            await sink.WriteAsync(Denied(actor: "a"));
+        }
+
+        await sink.FlushAllAsync();
+
+        Assert.That(_inner.Records.Single(r => r.Actor == "a" && r.Count == 3).Count, Is.EqualTo(3), "own summary for the tracked key");
+        Assert.That(_inner.Records.Single(r => r.Actor == AccessAuditRecord.NoValue).Count, Is.EqualTo(1), "overflow summary for c");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_OverflowWindow_ExpiresAndTheTableIsUsableAgain()
+    {
+        var sink = Sink(maxKeys: 1);
+        foreach (var actor in new[] { "a", "b", "c" })
+        {
+            await sink.WriteAsync(Denied(actor: actor));
+        }
+
+        _clock.Advance(Window);
+        await sink.FlushExpiredAsync();
+        await sink.WriteAsync(Denied(actor: "d"));
+
+        Assert.That(_inner.Records.Select(r => r.Actor), Is.EqualTo(new[] { "a", "b", AccessAuditRecord.NoValue, "d" }),
+            "after expiry d is tracked and written like a first denial");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_OverflowTableAlsoFull_RecordsAreWritten_NotDropped()
+    {
+        var sink = Sink(maxKeys: 1);
+
+        // a is tracked, b opens the only overflow window (reason no_policy); the unknown_action overflow has no room.
+        await sink.WriteAsync(Denied(actor: "a"));
+        await sink.WriteAsync(Denied(actor: "b"));
+        await sink.WriteAsync(Denied(actor: "c", reason: "unknown_action"));
+        await sink.WriteAsync(Denied(actor: "c", reason: "unknown_action"));
+
+        Assert.That(_inner.Records, Has.Count.EqualTo(4), "memory stays bounded and no record is dropped");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_OverflowFirstWriteFails_HeldRepeatsAreNotLost()
+    {
+        var gated = new GatedFailOnCallSink(gatedCall: 2);
+        var sink = Sink(maxKeys: 1, inner: gated);
+        await sink.WriteAsync(Denied(actor: "a"));
+        var first = sink.WriteAsync(Denied(actor: "b")).AsTask();
+        await sink.WriteAsync(Denied(actor: "c"));
+        gated.Release();
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await first);
+
+        await sink.FlushAllAsync();
+
+        Assert.That(gated.Inner.Records.Sum(r => r.Count), Is.EqualTo(2), "a plus the repeat counted while the overflow write was in flight");
+        Assert.That(gated.Inner.Records.Last().Actor, Is.EqualTo(AccessAuditRecord.NoValue));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_ParallelFlood_WithFullKeyTable_EveryDenyAccountedFor()
+    {
+        var sink = Sink(maxKeys: 5);
+
+        await Task.WhenAll(Enumerable.Range(0, 300).Select(i =>
+            Task.Run(async () => await sink.WriteAsync(Denied(actor: $"user-{i}")))));
+        await sink.FlushAllAsync();
+
+        Assert.That(_inner.Records.Sum(r => r.Count), Is.EqualTo(300));
+        Assert.That(_inner.Records.Count, Is.LessThan(20), "bounded number of records, not one per denial");
+    }
+
+    private sealed class GatedFailOnCallSink(int gatedCall) : IAccessAuditSink
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _calls;
+
+        public RecordingAuditSink Inner { get; } = new();
+
+        public void Release() => _gate.SetResult();
+
+        public async ValueTask WriteAsync(AccessAuditRecord record, CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _calls) == gatedCall)
+            {
+                await _gate.Task;
+                throw new InvalidOperationException("sink failed");
+            }
+
+            await Inner.WriteAsync(record, cancellationToken);
+        }
     }
 
     [Test]
@@ -298,6 +511,140 @@ public sealed class AggregatingAccessAuditSinkTests
 
         var total = _inner.Records.Where(r => r.Actor == "user-1").Sum(r => r.Count);
         Assert.That(total, Is.EqualTo(100));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_FlushExpired_WritesSummaryWithoutAnotherDeny()
+    {
+        var sink = Sink();
+        await sink.WriteAsync(Denied());
+        await sink.WriteAsync(Denied());
+        await sink.WriteAsync(Denied());
+        _clock.Advance(Window);
+
+        await sink.FlushExpiredAsync();
+
+        Assert.That(_inner.Records.Select(r => r.Count), Is.EqualTo(new[] { 1, 2 }));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_FlushExpired_LeavesOpenWindowsAlone()
+    {
+        var sink = Sink();
+        await sink.WriteAsync(Denied());
+        await sink.WriteAsync(Denied());
+        _clock.Advance(Window - TimeSpan.FromMilliseconds(1));
+
+        await sink.FlushExpiredAsync();
+
+        Assert.That(_inner.Records, Has.Count.EqualTo(1), "window is still open, count stays held back");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_FlushAll_WritesHeldCountsOfOpenWindows_OnlyOnce()
+    {
+        var sink = Sink();
+        await sink.WriteAsync(Denied());
+        await sink.WriteAsync(Denied());
+        await sink.WriteAsync(Denied());
+
+        await sink.FlushAllAsync();
+        await sink.FlushAllAsync();
+
+        Assert.That(_inner.Records.Select(r => r.Count), Is.EqualTo(new[] { 1, 2 }));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_SummaryWriteFails_HeldCountIsRetriedOnNextFlush()
+    {
+        // Call 1 = first deny, call 2 = summary (fails), call 3 = retry of the same summary.
+        var failing = new FailOnCallSink(failingCall: 2);
+        var sink = Sink(inner: failing);
+        await sink.WriteAsync(Denied());
+        await sink.WriteAsync(Denied());
+        _clock.Advance(Window);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await sink.FlushExpiredAsync());
+        await sink.FlushExpiredAsync();
+
+        Assert.That(failing.Inner.Records.Sum(r => r.Count), Is.EqualTo(2), "the held-back repeat was not lost");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_FirstWriteFails_RepeatsHeldMeanwhileAreNotLost()
+    {
+        var gated = new GatedFailingSink();
+        var sink = Sink(inner: gated);
+        var first = sink.WriteAsync(Denied()).AsTask();
+        await sink.WriteAsync(Denied());
+        gated.Release();
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await first);
+
+        await sink.FlushAllAsync();
+
+        Assert.That(gated.Inner.Records.Sum(r => r.Count), Is.EqualTo(1), "the repeat counted while the first write was in flight");
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_PersistentSinkFailure_RetryBacklogIsBounded()
+    {
+        var toggle = new ToggleFailingSink();
+        var sink = Sink(maxKeys: 1, inner: toggle);
+
+        foreach (var actor in new[] { "a", "b" })
+        {
+            // First deny is written, the two repeats are held back and become a summary with count 2.
+            await sink.WriteAsync(Denied(actor: actor));
+            await sink.WriteAsync(Denied(actor: actor));
+            await sink.WriteAsync(Denied(actor: actor));
+            _clock.Advance(Window);
+            toggle.Fail = true;
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await sink.FlushExpiredAsync());
+            toggle.Fail = false;
+        }
+
+        await sink.FlushExpiredAsync();
+
+        var summaries = toggle.Inner.Records.Where(r => r.Count == 2).ToList();
+        Assert.That(summaries, Has.Count.EqualTo(1), "backlog is capped at MaxAggregationKeys (1), the oldest summary survives");
+        Assert.That(summaries[0].Actor, Is.EqualTo("a"));
+    }
+
+    private sealed class GatedFailingSink : IAccessAuditSink
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _calls;
+
+        public RecordingAuditSink Inner { get; } = new();
+
+        public void Release() => _gate.SetResult();
+
+        public async ValueTask WriteAsync(AccessAuditRecord record, CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _calls) == 1)
+            {
+                await _gate.Task;
+                throw new InvalidOperationException("sink failed");
+            }
+
+            await Inner.WriteAsync(record, cancellationToken);
+        }
+    }
+
+    private sealed class ToggleFailingSink : IAccessAuditSink
+    {
+        public volatile bool Fail;
+
+        public RecordingAuditSink Inner { get; } = new();
+
+        public ValueTask WriteAsync(AccessAuditRecord record, CancellationToken cancellationToken = default) =>
+            Fail ? throw new InvalidOperationException("sink failed") : Inner.WriteAsync(record, cancellationToken);
     }
 
     [Test]

@@ -88,24 +88,49 @@ Lanac se sklapa u `AccessServiceCollectionExtensions.AddAccessControl()` kao sin
 | `ResilientAccessAuditWriter` | hvata svaki izuzetak, ima sopstveni timeout (podrazumevano 500 ms, nezavisan od tokena zahteva), otkazuje spor upis, diže alarm bez tajni. Greška audit-a nikad ne menja odluku. |
 | `FilteringAccessAuditWriter` | svako odbijanje se audit-uje, a `Allow` samo za privilegovane akcije. |
 | `AccessAuditRecordFactory` | gradi zapis samo od dozvoljenih polja; nevalidna vrednost se upisuje kao `invalid`, nikad sirova. |
-| `AggregatingAccessAuditSink` | isti actor + action + razlog u prozoru od 10 s: prvi zapis odmah, ostali se broje. Privilegovani se nikad ne agregiraju. Najviše 1024 ključa, preko toga se piše pojedinačno. |
+| `AggregatingAccessAuditSink` | isti actor + action + cilj + razlog u prozoru od 10 s: prvi zapis odmah, ostali se broje. Privilegovani se nikad ne agregiraju. Najviše 1024 ključa; kad je tabela puna, višak ide u jedan "overflow" prozor po razlogu odbijanja (prvi zapis odmah, ostali se broje, zbirni zapis ne navodi actor, action ni cilj). |
 | `LoggerAccessAuditSink` | jedan strukturiran `ILogger` zapis: odbijanje je `Warning` (id 6101), privilegovani `Allow` je `Information` (id 6102). |
 
 Polja zapisa: `time`, `actor` (ili `anonymous`/`invalid`), `action`, `target` (`type:id` ili `-`), `outcome`,
 `correlationId`, `denialReason`, `policyId`, `policyVersion`, `count`. Ne ulaze telo zahteva, lozinke, tokeni,
-identifikatori sesije ni odgovori studenata. Vrednosti su očišćene od kontrolnih i nevidljivih znakova
-(zaštita od log injection) i ograničene na 64 znaka. Formati prate katalog `access.denied` u
-[audit/CONTRACTS.md](audit/CONTRACTS.md): `denialReason` je snake_case, a `policyId` i `policyVersion` imaju
-ugovorene regex-e.
+identifikatori sesije ni odgovori studenata. Svaka vrednost se proverava po formatu, nikad se ne čisti pa prihvata
+(zaštita od log injection i lažnog pripisivanja):
+- `actor`, `correlationId` i delovi cilja (`type`, `id`): ASCII slovo ili cifra, pa slova, cifre i `_ . : @ -`,
+  najviše 64 znaka. Razmak, `=`, navodnici, kontrolni, nevidljivi i surogat znaci nisu dozvoljeni.
+- Vrednost van formata ili duža od 64 znaka upisuje se kao `invalid` (kod cilja po delu, npr. `attempt:invalid`;
+  ceo cilj duži od 64 znaka je `invalid`). Vrednost se nikad ne seče, pa dva različita id-ja ne mogu da dobiju
+  isti zapis, a id sa nevidljivim znakom ne može da postane id drugog korisnika.
+- Nedostajući `correlationId`, `type` ili `id` upisuje se kao `-`; nedostajući `actor` je `invalid`.
+
+Formati prate katalog `access.denied` u [audit/CONTRACTS.md](audit/CONTRACTS.md): `denialReason` je snake_case, a
+`policyId` i `policyVersion` imaju ugovorene regex-e.
 
 Alarm `access.audit.failure` (id 6103, `Error`) nosi samo razlog (`failed` ili `timed_out`), naziv tipa izuzetka i
-očišćen `correlationId`, nikad poruku izuzetka, stek ni sadržaj zapisa.
+`correlationId` (proveren isto kao u zapisu, inače `invalid`), nikad poruku izuzetka, stek ni sadržaj zapisa.
+
+Alarm ide kroz isti logging pipeline kao i zapis, pa kad je baš on pao (pun disk, pao log sink), i zapis i alarm
+nestaju. Zato svaki neuspeh audita povećava i brojač `access.audit.failures` (meter `Platform.Access`, tip
+`Counter<long>`, jedini tag `reason`: `failed`, `timed_out` ili `flush_failed`). Brojač se povećava pre logovanja i
+ne zavisi od njega, ne nosi poruku izuzetka, actor-a ni `correlationId`, a ako ga neki listener obori, to ne menja
+odluku o pristupu. Brojač koji raste znači da se audit ne upisuje; čita ga exporter ili health check hosta.
+
+Zbirne zapise zatvara i hosted servis `AccessAuditFlushService`: svakih `FlushInterval` (podrazumevano 5 s) zatvara
+istekle prozore, pa brojač poslednjeg prozora izlazi i bez novog saobraćaja, a pri gašenju upisuje sve zadržane
+brojeve, i iz prozora koji su još otvoreni. Zbirni zapis čiji upis padne ostaje na listi za ponovni pokušaj
+(najviše `MaxAggregationKeys`, najstariji prvi) i pokušava se pri sledećem pražnjenju. Neuspelo pražnjenje daje
+alarm `access.audit.flush.failure` (id 6104, `Error`) koji nosi samo fazu (`periodic` ili `shutdown`) i naziv tipa
+izuzetka, nikad poruku izuzetka. Pražnjenje ne zaustavlja ni petlju ni host.
 
 **Poznata ograničenja:**
 
-- Zbirni zapis poslednjeg prozora izlazi tek sa sledećim odbijanjem (nema tajmera). Bez novog saobraćaja
-  brojač poslednjeg prozora ostaje neispisan.
-- Ključ agregacije je actor + action + razlog, pa se odbijanja različitih resursa istog korisnika spajaju.
+- Ako je odredišni sink duže nedostupan, lista za ponovni pokušaj se puni do `MaxAggregationKeys`; zbirni zapisi
+  preko te granice se odbacuju (najnoviji prvi). Prva odbijanja prozora se i dalje upisuju odmah.
+- Ključ agregacije je actor + action + cilj + razlog, pa svaki resurs koji korisnik proba dobija svoj zapis. Zapis ima
+  cilj samo ako pozivalac pošalje `Resource` u `AccessRequest`; IDN-03 adapter ga danas ne šalje (`target=-`).
+- Kad se popuni tabela od 1024 ključa (npr. poplava odbijanja sa mnogo različitih naloga), pojedinačni nalozi se u
+  tom prozoru više ne vide: vidi se samo prvi zapis i zbirni zapis sa brojem. Brojanje je potpuno (nijedno
+  odbijanje se ne gubi), ali bez podele po nalogu. Tvrda granica memorije su 2 x `MaxAggregationKeys` prozora; ako se
+  i ona premaši (mnogo različitih razloga odbijanja), zapis se piše pojedinačno.
 - Odredište je trenutno samo log. Trajni audit (PostgreSQL) čeka host adapter S-13.
 - Kad adapter koristi scoped `DbContext`, `IAccessDecision` i `IAccessAuditWriter` moraju postati scoped zajedno
   (vidi [audit/DI-GUIDELINES.md](audit/DI-GUIDELINES.md)). Agregator drži stanje u procesu i mora ostati singleton.

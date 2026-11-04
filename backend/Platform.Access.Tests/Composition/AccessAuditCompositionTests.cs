@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Platform.Access.Composition;
 using Platform.Access.Contracts;
@@ -164,6 +165,47 @@ public sealed class AccessAuditCompositionTests
 
     [Test]
     [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_Composition_BrokenLogging_IsStillVisibleInTheFailureCounter()
+    {
+        using var provider = Build(out _, extraProvider: new ThrowingLoggerProvider());
+        using var counter = new FailureCounterListener(provider.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
+        var decision = provider.GetRequiredService<IAccessDecision>();
+
+        var denied = await decision.DecideAsync(Request("unknown.action"));
+
+        Assert.That(denied.Outcome, Is.EqualTo(AccessOutcome.Deny));
+        Assert.That(counter.Total, Is.GreaterThanOrEqualTo(1), "record and alarm are lost, the counter is not");
+        Assert.That(counter.Reasons, Has.All.EqualTo("failed"));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_Composition_HealthyLogging_CountsNoFailure()
+    {
+        using var provider = Build(out _);
+        using var counter = new FailureCounterListener(provider.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
+        var decision = provider.GetRequiredService<IAccessDecision>();
+
+        await decision.DecideAsync(Request("unknown.action"));
+        await decision.DecideAsync(Request("lab.read"));
+
+        Assert.That(counter.Total, Is.Zero);
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_Composition_Metrics_AreASingleton_AndStrictValidationPasses()
+    {
+        using var provider = Build(out _);
+        using var scopeA = provider.CreateScope();
+        using var scopeB = provider.CreateScope();
+
+        Assert.That(scopeA.ServiceProvider.GetRequiredService<AccessAuditMetrics>(),
+            Is.SameAs(scopeB.ServiceProvider.GetRequiredService<AccessAuditMetrics>()));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
     public void ACC05_Composition_AuditWriterAndDecision_AreSingletons()
     {
         using var provider = Build(out _);
@@ -175,6 +217,40 @@ public sealed class AccessAuditCompositionTests
             Is.SameAs(scopeB.ServiceProvider.GetRequiredService<IAccessAuditWriter>()));
         Assert.That(scopeA.ServiceProvider.GetRequiredService<IAccessDecision>(),
             Is.SameAs(scopeB.ServiceProvider.GetRequiredService<IAccessDecision>()));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public void ACC05_Composition_RegistersExactlyOneFlushService()
+    {
+        using var provider = Build(out _);
+
+        var services = provider.GetServices<IHostedService>().OfType<AccessAuditFlushService>().ToList();
+
+        Assert.That(services, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    [Property("RequirementId", "ACC-05")]
+    public async Task ACC05_Composition_Shutdown_WritesCountsHeldBackByTheDecisionPipeline()
+    {
+        using var provider = Build(out var logs);
+        var decision = provider.GetRequiredService<IAccessDecision>();
+        var flush = provider.GetServices<IHostedService>().OfType<AccessAuditFlushService>().Single();
+        await flush.StartAsync(CancellationToken.None);
+
+        for (var i = 0; i < 4; i++)
+        {
+            await decision.DecideAsync(Request("unknown.action"));
+        }
+
+        Assert.That(logs.Entries.Count(e => e.EventId.Name == "access.denied"), Is.EqualTo(1), "repeats are held back");
+
+        await flush.StopAsync(CancellationToken.None);
+
+        var denied = logs.Entries.Where(e => e.EventId.Name == "access.denied").ToList();
+        Assert.That(denied, Has.Count.EqualTo(2));
+        Assert.That(denied.Any(e => e.Message.Contains("count=3")), Is.True, "held-back repeats reported at shutdown");
     }
 
     [Test]

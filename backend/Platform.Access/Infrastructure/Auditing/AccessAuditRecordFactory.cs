@@ -7,8 +7,10 @@ namespace Platform.Access.Infrastructure.Auditing;
 
 /// <summary>
 /// Builds an <see cref="AccessAuditRecord"/> from a decision. Every value is taken from the
-/// server-side request and decision, sanitized and bounded. A value that does not match its
-/// expected format is recorded as <see cref="AccessAuditRecord.Invalid"/>, never as raw input.
+/// server-side request and decision and checked against its expected format. A value that does not
+/// match is recorded as <see cref="AccessAuditRecord.Invalid"/>: it is never cleaned and accepted, never
+/// cut to the length limit and never copied raw, so it cannot pose as another actor, merge with another
+/// id or start a second field in a rendered log line.
 /// </summary>
 internal sealed partial class AccessAuditRecordFactory(TimeProvider clock, AccessAuditOptions options)
 {
@@ -33,7 +35,7 @@ internal sealed partial class AccessAuditRecordFactory(TimeProvider clock, Acces
             Action: ActionOf(request.Action),
             Target: TargetOf(request.Resource),
             Outcome: denied ? "deny" : "allow",
-            CorrelationId: OrNoValue(Clean(request.CorrelationId)),
+            CorrelationId: IdentifierOrNoValue(request.CorrelationId),
             DenialReason: denied ? DenialReasonOf(decision.DenialReason) : null,
             PolicyId: decision.PolicyId is null ? null : Matching(decision.PolicyId, PolicyIdPattern()),
             PolicyVersion: Matching(decision.PolicyVersion, PolicyVersionPattern()));
@@ -60,8 +62,7 @@ internal sealed partial class AccessAuditRecordFactory(TimeProvider clock, Acces
             return AccessAuditRecord.Anonymous;
         }
 
-        var id = Clean(subject.Id);
-        return id.Length == 0 ? AccessAuditRecord.Invalid : id;
+        return AuditIdentifier.IsValid(subject.Id, options.MaxValueLength) ? subject.Id : AccessAuditRecord.Invalid;
     }
 
     // The raw action is checked before any cleaning: a value that needed cleaning is not a valid action.
@@ -77,10 +78,10 @@ internal sealed partial class AccessAuditRecordFactory(TimeProvider clock, Acces
             return AccessAuditRecord.NoValue;
         }
 
-        var type = OrNoValue(Clean(resource.Type));
-        var id = OrNoValue(Clean(resource.Id));
+        var target = $"{IdentifierOrNoValue(resource.Type)}:{IdentifierOrNoValue(resource.Id)}";
 
-        return AuditValueSanitizer.Clean($"{type}:{id}", options.MaxValueLength);
+        // Never cut: two different resources must not end up with the same recorded target.
+        return target.Length <= options.MaxValueLength ? target : AccessAuditRecord.Invalid;
     }
 
     private string Matching(string? value, Regex pattern) =>
@@ -88,7 +89,9 @@ internal sealed partial class AccessAuditRecordFactory(TimeProvider clock, Acces
             ? value
             : AccessAuditRecord.Invalid;
 
-    private string Clean(string? value) => AuditValueSanitizer.Clean(value, options.MaxValueLength);
-
-    private static string OrNoValue(string value) => value.Length == 0 ? AccessAuditRecord.NoValue : value;
+    // Missing value: "-". Present but outside the identifier format: "invalid". Never the cleaned raw value.
+    private string IdentifierOrNoValue(string? value) =>
+        string.IsNullOrEmpty(value) ? AccessAuditRecord.NoValue
+        : AuditIdentifier.IsValid(value, options.MaxValueLength) ? value
+        : AccessAuditRecord.Invalid;
 }
