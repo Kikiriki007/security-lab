@@ -1,34 +1,37 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Platform.LabMetadata
 {
-    public class Laboratory
+    public class LaboratoryMetadata
     {
-        public Guid Id { get; }
-        public string Name { get; private set; }
+        // Referenca na postojecu laboratoriju iz LAB-01.
+        // LAB-02 ne generise novi identitet.
+        public Guid LaboratoryId { get; }
+
         public string Objective { get; private set; }
         public LaboratoryDifficulty Difficulty { get; private set; }
         public LaboratoryType Type { get; private set; }
-        public IReadOnlyList<string> Tags { get; private set; } = Array.Empty<string>();
+        public IReadOnlyList<string> Tags { get; private set; }
 
-        public Laboratory(
-            Guid id,
-            string name,
+        public LaboratoryMetadata(
+            Guid laboratoryId,
             string objective,
             LaboratoryDifficulty difficulty,
             LaboratoryType type,
             IEnumerable<string> tags)
         {
-            if (id == Guid.Empty)
-                throw new ArgumentException("Laboratory ID cannot be empty.", nameof(id));
-
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("Laboratory name is required.", nameof(name));
+            if (laboratoryId == Guid.Empty)
+                throw new ArgumentException(
+                    "Laboratory ID cannot be empty.",
+                    nameof(laboratoryId));
 
             if (string.IsNullOrWhiteSpace(objective))
-                throw new ArgumentException("Laboratory objective is required.", nameof(objective));
+                throw new ArgumentException(
+                    "Laboratory objective is required.",
+                    nameof(objective));
 
             if (!Enum.IsDefined(difficulty))
                 throw new ArgumentOutOfRangeException(nameof(difficulty));
@@ -36,14 +39,13 @@ namespace Platform.LabMetadata
             if (!Enum.IsDefined(type))
                 throw new ArgumentOutOfRangeException(nameof(type));
 
-            Id = id;
-            Name = name.Trim();
+            if (tags is null)
+                throw new ArgumentNullException(nameof(tags));
+
+            LaboratoryId = laboratoryId;
             Objective = objective.Trim();
             Difficulty = difficulty;
             Type = type;
-
-            if (tags is null)
-                throw new ArgumentNullException(nameof(tags));
 
             Tags = Array.AsReadOnly(
                 tags
@@ -52,16 +54,6 @@ namespace Platform.LabMetadata
                     .Distinct()
                     .ToArray()
             );
-        }
-
-        public void Rename(string newName)
-        {
-            if (string.IsNullOrWhiteSpace(newName))
-                throw new ArgumentException(
-                    "Laboratory name is required.",
-                    nameof(newName));
-
-            Name = newName.Trim();
         }
     }
 }
