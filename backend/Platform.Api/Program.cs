@@ -1,3 +1,5 @@
+using Platform.Api.Modules.Kt1;
+using Platform.Api.Modules.Laboratories;
 
 using Platform.Access.Composition;
 using Platform.Access.Contracts;
@@ -10,8 +12,12 @@ using Platform.Api.Security;
 
 using Platform.Api.Domain.Identity;
 using Platform.Api.Middlewares;
+using Platform.Api.Modules.Identity.RateLimiting;
 using Platform.Api.Services.Identity;
 using Platform.Audit.Composition;
+using Platform.LabVisibility.Composition;
+using Platform.LabVisibility.Contracts;
+using Platform.LabVisibility.Infrastructure.Membership;
 
 // Oba modula imaju IAccessDecision, zato koristimo alias.
 using IdentityAccessDecision = Platform.Api.Services.Identity.IAccessDecision;
@@ -21,6 +27,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Access modul
 builder.Services.AddAccessControl();
+var kt1Enabled = Kt1Endpoints.Enabled(builder.Environment, builder.Configuration);
+if (kt1Enabled) builder.Services.AddCourseworkKt1();
 
 // IDN-01: registracija naloga
 builder.Services.AddIdentityModule();
@@ -36,6 +44,8 @@ else
 
 // Servisi sa main grane
 builder.Services.AddAudit();
+builder.Services.AddLabVisibility();
+builder.Services.AddIdentityRateLimiting(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -61,11 +71,27 @@ else
     builder.Services.AddSingleton<ISessionManager, NoOpSessionRevoker>();
 }
 
+// Laboratories modul
+builder.Services.AddLaboratories(builder.Environment);
+
+// Kreiranje aplikacije
 var app = builder.Build();
+
+// Identity Rate Limiting
+app.UseIdentityRateLimiting();
+if (kt1Enabled)
+{
+    app.UseAuthentication();
+    app.RegisterCourseworkPolicies();
+    app.MapCourseworkKt1();
+}
 
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();
 app.MapAccountEndpoints();
+
+// AUT-04/AUT-07: radnje i politike za prikaz laboratorije
+app.Services.RegisterLabVisibilityAccess();
 
 // Probni nalozi samo za lokalni razvoj
 if (app.Environment.IsDevelopment())
@@ -83,8 +109,15 @@ if (app.Environment.IsDevelopment())
     repo.Save(new UserAccount(
         Guid.Parse("33333333-3333-3333-3333-333333333333"),
         "other@example.com"));
+
+    // AUT-04/AUT-07 demo kurs: 1111 je nastavnik, 2222 student, 3333 nije na kursu.
+    var demoCourse = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    var membership = app.Services.GetRequiredService<InMemoryCourseMembership>();
+    membership.Set(demoCourse, Guid.Parse("11111111-1111-1111-1111-111111111111"), CourseRole.Teacher);
+    membership.Set(demoCourse, Guid.Parse("22222222-2222-2222-2222-222222222222"), CourseRole.Student);
 }
 
+// Health endpoint
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "ok",
@@ -95,6 +128,7 @@ app.MapGet("/api/health", () => Results.Ok(new
 app.UseMiddleware<SessionValidationMiddleware>();
 
 app.MapControllers();
+app.MapLaboratories();
 
 if (app.Environment.IsDevelopment())
 {
