@@ -1,0 +1,48 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Team21.Acc.Api.Extensions;
+using Team21.Acc.Core.Courses;
+namespace Team21.Acc.Api.Courses;
+
+public static class CourseEndpoints
+{
+    public static IEndpointRouteBuilder MapCourseEndpoints(
+        this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/courses");
+
+        group.MapPost("", CreateCourse)
+            .WithName("CreateCourse");
+
+        group.MapPost("/{id:guid}/archive", ArchiveCourse)
+            .WithName("ArchiveCourse");
+
+        return app;
+    }
+
+    private static async Task<IResult> CreateCourse(
+    CreateCourseRequest request,
+    ICourseService courseService,
+    CancellationToken cancellationToken)
+    {
+        var result = await courseService.CreateAsync(
+            request,
+            cancellationToken);
+
+        return result.ToCreatedHttpResult(
+            course => $"/api/courses/{course.Id}");
+    }
+
+    private static async Task<IResult> ArchiveCourse(
+        Guid id,
+        ICourseService courseService,
+        CancellationToken cancellationToken)
+    {
+        var result = await courseService.ArchiveAsync(
+            id,
+            cancellationToken);
+
+        return result.ToHttpResult();
+    }
+}
