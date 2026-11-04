@@ -99,10 +99,17 @@ Without the connection string the api still starts. Only our endpoints fail.
 No real login yet. Send the user id in a header. For example the demo teacher asking for the demo course's materials:
 
 ```bash
-curl -H "X-Test-User: 00000000-0000-0000-0000-000000000001" http://localhost:5080/api/courses/00000000-0000-0000-0000-00000000c001/materials
+curl -H "X-Test-User: 00000000-0000-0000-0000-000000000001" http://localhost:5080/api/courses/21000000-0000-0000-0000-000000000001/materials
 ```
 
-The demo ids are in `Team21.Acc.Infrastructure/Groups/Fakes/DemoIds.cs`. In Development the groups demo data is seeded at startup once the groups migration is applied.
+The demo ids are in `Team21.Acc.Infrastructure/Groups/Fakes/DemoIds.cs`. In Development the groups demo data is seeded at startup once the groups migration is applied. The two demo courses use the same ids as the ACC-01 sample courses.
+
+If your local database was seeded before the demo courses moved to the ACC-01 ids, reset it once and apply the migrations again:
+
+```bash
+docker compose down -v
+docker compose up -d db
+```
 
 | Id ends in | Who or what |
 |---|---|
@@ -111,14 +118,28 @@ The demo ids are in `Team21.Acc.Infrastructure/Groups/Fakes/DemoIds.cs`. In Deve
 | `…000a` / `…000b` | StudentA in group A / StudentB in group B |
 | `…00bb` | Blocked student |
 | `…00ff` | Active account outside the course |
-| `…c001` | Demo course |
+| `21000000-…0001` | Demo course, active (ACC-01 sample OIB-2026) |
+| `21000000-…0003` | Archived demo course (ACC-01 sample OIB-2025), teacher and StudentA are members |
 | `…d00a` / `…d0cc` | Assignment restricted to group A / open to the whole course |
+| `…d0a0` | Assignment in the archived course. StudentA gets 404, the teacher still gets 200 |
 
 ```bash
 curl -H "X-Test-User: 00000000-0000-0000-0000-00000000000b" http://localhost:5080/api/materials/assignment/00000000-0000-0000-0000-00000000d00a
 ```
 
 StudentB gets 404 for the material restricted to group A, the same answer as for a material that doesn't exist.
+
+The demo teacher manages groups under `/api/courses/{courseId}/groups`:
+
+| Method and path | What it does |
+|---|---|
+| `GET /` and `GET /{groupId}` | The course's groups, one group |
+| `POST /` with `{ "name": "C" }` | Creates a group. Only in an active course, names are unique among active groups |
+| `GET /{groupId}/members` | Current members |
+| `POST /{groupId}/members` with `{ "userId": "..." }` | Adds an active student of the course |
+| `DELETE /{groupId}/members/{userId}` | Removes a member, kept as history. Members of an archived group or course are frozen |
+
+Anyone who isn't the course's teacher gets 404, same as a course that doesn't exist.
 
 No header, a bad guid or two headers means nobody is signed in. Outside Development the header is ignored.
 
@@ -209,6 +230,7 @@ Whoever first needs one writes the interface and its fake next to their code, re
 | `X-Test-User` header | Login and sessions | IDN teams | done |
 | `FakeAccountStatusReader` | Blocked / active accounts | IDN-03 team | done, `DenyAllAccountStatusReader` outside Development |
 | `FakeCourseMembershipReader` | Enrollment and teacher assignment | ACC-02 / ACC-03 teams | done, `NoCourseMembershipReader` outside Development |
+| `FakeCourseStateReader` | Active / archived course | ACC-01, us | done, `NoCourseStateReader` outside Development. The real reader over `CoursesDbContext` comes once ACC-01 and ACC-06 are both in main |
 | `LoggingVisibilityAuditWriter` | Audit log storage | AUD team | done, writes to the application log in every environment |
 | `DemoGroupsSeeder` | Groups demo data | us | done, Development only |
 | Material catalog | Labs and assignments | LAB / ASN teams | not needed while the visibility write side is not ours |
