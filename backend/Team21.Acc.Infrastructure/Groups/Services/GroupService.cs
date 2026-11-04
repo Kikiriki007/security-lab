@@ -159,12 +159,21 @@ public class GroupService : IGroupService
             return Error.Validation("Invalid user ID.");
 
         // 3. Provera da grupa pripada trazenom kursu
-        var groupExists = await _context.Groups
-            .AnyAsync(g => g.Id == groupId &&
-                           g.CourseId == courseId, ct);
+        var group = await _context.Groups
+            .AsNoTracking()
+            .FirstOrDefaultAsync(g => g.Id == groupId &&
+                                      g.CourseId == courseId, ct);
 
-        if (!groupExists)
+        if (group is null)
             return Error.NotFound("Group not found.");
+
+        // Members of an archived group or course are frozen
+        if (group.Status != GroupStatus.Active)
+            return Error.Conflict("Group is archived.");
+
+        var courseError = await CheckCourseOpenAsync(courseId, ct);
+        if (courseError is not null)
+            return courseError;
 
         // 4. Pronalazenje aktivnog clanstva
         var member = await _context.GroupMembers
