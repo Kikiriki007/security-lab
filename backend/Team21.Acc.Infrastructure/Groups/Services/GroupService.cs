@@ -312,27 +312,30 @@ public class GroupService : IGroupService
         CancellationToken ct)
     {
         // Provera prijavljenog korisnika
-        if (!_actor.IsAuthenticated || _actor.UserId is null)
+        if (!_actor.IsAuthenticated || _actor.UserId is not { } userId)
             return Error.Unauthorized("Sign in first.");
 
         // Provera identifikatora kursa
         if (courseId == Guid.Empty)
             return Error.Validation("Invalid course ID.");
 
-        // Provera nastavnicke uloge na konkretnom kursu
-        var membership = await _membershipReader.FindAsync(
-            _actor.UserId.Value,
-            courseId,
-            ct);
+        // A blocked teacher manages nothing
+        if (await _accountStatusReader.GetStatusAsync(userId, ct) != AccountStatus.Active)
+            return CourseNotFound();
+
+        // Same answer as a missing course, a denial must not show the course exists
+        var membership = await _membershipReader.FindAsync(userId, courseId, ct);
 
         if (membership is null ||
             !membership.Active ||
+            membership.CourseId != courseId ||
             membership.Role != CourseRole.Teacher)
         {
-            return Error.Forbidden(
-                "You are not allowed to manage groups in this course.");
+            return CourseNotFound();
         }
 
         return null;
     }
+
+    private static Error CourseNotFound() => Error.NotFound("Course not found.");
 }
