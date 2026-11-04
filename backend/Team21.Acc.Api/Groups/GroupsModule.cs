@@ -28,6 +28,7 @@ public static class GroupsModule
             services.AddSingleton<FakeDirectory>();
             services.AddScoped<IAccountStatusReader, FakeAccountStatusReader>();
             services.AddScoped<ICourseMembershipReader, FakeCourseMembershipReader>();
+            services.AddScoped<ICourseStateReader, FakeCourseStateReader>();
 
             services.AddScoped<DemoGroupsSeeder>();
             services.AddHostedService<DemoSeedHostedService>();
@@ -36,6 +37,7 @@ public static class GroupsModule
         {
             services.AddScoped<IAccountStatusReader, DenyAllAccountStatusReader>();
             services.AddScoped<ICourseMembershipReader, NoCourseMembershipReader>();
+            services.AddScoped<ICourseStateReader, NoCourseStateReader>();
         }
 
         services.AddScoped<IVisibilityAuditWriter, LoggingVisibilityAuditWriter>();

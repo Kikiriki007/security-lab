@@ -3,7 +3,7 @@ using Team21.Acc.Core.Groups.Visibility;
 namespace Team21.Acc.Infrastructure.Groups.Fakes;
 
 /// <summary>
-/// Development only. In-memory accounts and course memberships that other teams own.
+/// Development only. In-memory accounts, course memberships and course states that other modules own.
 /// Seeded with <see cref="DemoIds"/>.
 /// </summary>
 public sealed class FakeDirectory
@@ -18,8 +18,16 @@ public sealed class FakeDirectory
         [DemoIds.Outsider] = AccountStatus.Active
     };
 
+    private readonly Dictionary<Guid, CourseState> _courses = new()
+    {
+        [DemoIds.Course] = CourseState.Active,
+        [DemoIds.ArchivedCourse] = CourseState.Archived
+    };
+
     private readonly Dictionary<(Guid AccountId, Guid CourseId), CourseMembership> _memberships = new()
     {
+        [(DemoIds.Teacher, DemoIds.ArchivedCourse)] = new(DemoIds.ArchivedCourse, CourseRole.Teacher, Active: true, CanReview: true),
+        [(DemoIds.StudentA, DemoIds.ArchivedCourse)] = new(DemoIds.ArchivedCourse, CourseRole.Student, Active: true, CanReview: false),
         [(DemoIds.Teacher, DemoIds.Course)] = new(DemoIds.Course, CourseRole.Teacher, Active: true, CanReview: true),
         [(DemoIds.Assistant, DemoIds.Course)] = new(DemoIds.Course, CourseRole.Assistant, Active: true, CanReview: true),
         [(DemoIds.StudentA, DemoIds.Course)] = new(DemoIds.Course, CourseRole.Student, Active: true, CanReview: false),
@@ -30,6 +38,10 @@ public sealed class FakeDirectory
     // Unknown accounts count as inactive
     public AccountStatus StatusOf(Guid accountId) =>
         _accounts.GetValueOrDefault(accountId, AccountStatus.Inactive);
+
+    // Unknown courses have no state
+    public CourseState? StateOf(Guid courseId) =>
+        _courses.TryGetValue(courseId, out var state) ? state : null;
 
     public CourseMembership? MembershipOf(Guid accountId, Guid courseId) =>
         _memberships.GetValueOrDefault((accountId, courseId));

@@ -6,6 +6,7 @@ namespace Team21.Acc.Infrastructure.Groups.Fakes;
 public static class DemoIds
 {
     public static readonly Guid Course = Guid.Parse("00000000-0000-0000-0000-00000000c001");
+    public static readonly Guid ArchivedCourse = Guid.Parse("00000000-0000-0000-0000-00000000c0a0");
 
     public static readonly Guid Teacher = Guid.Parse("00000000-0000-0000-0000-000000000001");
     public static readonly Guid Assistant = Guid.Parse("00000000-0000-0000-0000-000000000002");
