@@ -64,9 +64,13 @@ else
     builder.Services.AddSingleton<ISessionManager, NoOpSessionRevoker>();
 }
 
+// Laboratories modul
 builder.Services.AddLaboratories(builder.Environment);
 
+// Kreiranje aplikacije
 var app = builder.Build();
+
+// Identity Rate Limiting
 app.UseIdentityRateLimiting();
 
 // IDN-01: politike i endpoint za kreiranje naloga
@@ -91,6 +95,7 @@ if (app.Environment.IsDevelopment())
         "other@example.com"));
 }
 
+// Health endpoint
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "ok",
