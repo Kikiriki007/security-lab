@@ -258,7 +258,7 @@ public sealed class AuditWriterTests
         public List<AuditEvent> Events { get; } = [];
         public Exception? ExceptionToThrow { get; init; }
 
-        public ValueTask<AuditStoreWriteResult> AppendAsync(
+        public Task<AuditAppendStatus> AppendAsync(
             AuditEvent auditEvent,
             CancellationToken cancellationToken = default)
         {
@@ -270,12 +270,20 @@ public sealed class AuditWriterTests
             if (existing is null)
             {
                 Events.Add(auditEvent);
-                return ValueTask.FromResult(AuditStoreWriteResult.Recorded);
+                return Task.FromResult(AuditAppendStatus.Appended);
             }
 
-            return ValueTask.FromResult(existing.HasSameContentAs(auditEvent)
-                ? AuditStoreWriteResult.AlreadyRecorded
-                : AuditStoreWriteResult.EventIdConflict);
+            return Task.FromResult(existing.HasSameContentAs(auditEvent)
+                ? AuditAppendStatus.AlreadyPresent
+                : AuditAppendStatus.Conflict);
+        }
+
+        public Task<AuditEvent?> FindAsync(
+            Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Events.SingleOrDefault(item => item.Id == id));
         }
     }
 

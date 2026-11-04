@@ -78,9 +78,9 @@ internal sealed class AuditWriter : IAuditWriter, ITrustedAuditWriter
 
             return storeResult switch
             {
-                AuditStoreWriteResult.Recorded or AuditStoreWriteResult.AlreadyRecorded =>
+                AuditAppendStatus.Appended or AuditAppendStatus.AlreadyPresent =>
                     AuditWriteResult.Recorded(eventId),
-                AuditStoreWriteResult.EventIdConflict =>
+                AuditAppendStatus.Conflict =>
                     AuditWriteResult.Rejected(AuditRejectionCode.EventIdConflict),
                 _ => AuditWriteResult.Unavailable()
             };
@@ -104,19 +104,4 @@ internal sealed class AuditWriter : IAuditWriter, ITrustedAuditWriter
 internal interface IAuditContextProvider
 {
     AuditContext? GetCurrentContext();
-}
-
-/// <summary>Append-only persistence boundary for immutable audit events.</summary>
-internal interface IAuditEventStore
-{
-    ValueTask<AuditStoreWriteResult> AppendAsync(
-        AuditEvent auditEvent,
-        CancellationToken cancellationToken = default);
-}
-
-internal enum AuditStoreWriteResult
-{
-    Recorded,
-    AlreadyRecorded,
-    EventIdConflict
 }
