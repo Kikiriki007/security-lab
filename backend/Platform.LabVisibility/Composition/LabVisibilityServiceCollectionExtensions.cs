@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Platform.Access.Infrastructure.Catalog;
 using Platform.Access.Infrastructure.Policies;
+using Platform.LabVisibility.Application.Preview;
 using Platform.LabVisibility.Contracts;
 using Platform.LabVisibility.Infrastructure.Auditing;
 using Platform.LabVisibility.Infrastructure.Membership;
@@ -24,6 +25,9 @@ public static class LabVisibilityServiceCollectionExtensions
         services.AddSingleton<ICourseMembership>(sp => sp.GetRequiredService<InMemoryCourseMembership>());
 
         services.AddSingleton<ILabVisibilityAudit, NullLabVisibilityAudit>();
+
+        // AUT-07: pregled pre objave (Cvetojević)
+        services.AddScoped<PreviewStudentView>();
 
         return services;
     }
