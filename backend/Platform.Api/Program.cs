@@ -7,10 +7,12 @@ using Platform.Access.Domain.Enums;
 using Platform.Access.Domain.Models;
 
 using Platform.Identity;
+using Platform.Api.Development;
 using Platform.Api.Endpoints.Identity;
 using Platform.Api.Interfaces.Identity;
 
 using Platform.Identity.Entities;
+using Platform.Identity.Persistence;
 using Platform.Api.Middlewares;
 using Platform.Api.Modules.Identity.RateLimiting;
 using Platform.Api.Services.Identity;
@@ -25,6 +27,12 @@ using PlatformAccessDecision = Platform.Access.Contracts.IAccessDecision;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddLocalEnvFile();
+    builder.Configuration.AddUserSecrets<PlatformIdentityDbContext>(optional: true);
+}
+
 // Access modul
 builder.Services.AddAccessControl();
 var kt1Enabled = Kt1Endpoints.Enabled(builder.Environment, builder.Configuration);
@@ -32,6 +40,9 @@ if (kt1Enabled) builder.Services.AddCourseworkKt1();
 
 // IDN-01: registracija naloga
 builder.Services.AddIdentityModule();
+
+// IDN-02: prijava, odjava i sesije
+builder.Services.AddIdentityModule(builder.Configuration);
 
 if (builder.Environment.IsDevelopment())
 {
@@ -115,6 +126,10 @@ if (app.Environment.IsDevelopment())
     var membership = app.Services.GetRequiredService<InMemoryCourseMembership>();
     membership.Set(demoCourse, Guid.Parse("11111111-1111-1111-1111-111111111111"), CourseRole.Teacher);
     membership.Set(demoCourse, Guid.Parse("22222222-2222-2222-2222-222222222222"), CourseRole.Student);
+
+    // US-02 and US-09: migrate and seed the identity database (skipped without a connection string).
+    if (await app.ApplyIdentityMigrationsAsync())
+        await app.SeedDevelopmentAccountsAsync();
 }
 
 // Health endpoint

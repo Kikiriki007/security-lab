@@ -5,7 +5,7 @@ using Platform.Api.Interfaces.Identity;
 using Platform.Api.Models.Identity;
 using Platform.Api.Services.Identity;
 
-namespace Platform.Tests.Identity;
+namespace Platform.Identity.Tests.Services;
 
 [TestFixture]
 public class ChangeAccountStatusTests
