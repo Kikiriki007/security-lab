@@ -1,9 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
 using Platform.Access.Infrastructure.Catalog;
+using Platform.Access.Infrastructure.Policies;
 using Platform.LabVisibility.Contracts;
 using Platform.LabVisibility.Infrastructure.Auditing;
 using Platform.LabVisibility.Infrastructure.Membership;
 using Platform.LabVisibility.Infrastructure.Persistence;
+using Platform.LabVisibility.Infrastructure.Policies;
 
 namespace Platform.LabVisibility.Composition;
 
@@ -36,8 +38,12 @@ public static class LabVisibilityServiceCollectionExtensions
         }
 
         // Politike se dodaju ovde, svako svoju:
-        // var policies = services.GetRequiredService<InMemoryAccessPolicyRegistry>();
-        // policies.Register(LabVisibilityActions.StudentView, new StudentViewPolicy(...));
+        var policies = services.GetRequiredService<InMemoryAccessPolicyRegistry>();
+
+        // AUT-07: pregled pre objave samo za nastavnika kursa (Cvetojević)
+        policies.Register(LabVisibilityActions.Preview, new LabPreviewPolicy(
+            services.GetRequiredService<ILabPublicContentReader>(),
+            services.GetRequiredService<ICourseMembership>()));
 
         return services;
     }

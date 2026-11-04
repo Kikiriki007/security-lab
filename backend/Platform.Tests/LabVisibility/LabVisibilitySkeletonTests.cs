@@ -30,7 +30,11 @@ public class LabVisibilitySkeletonTests
             new ResourceRef("lab", Guid.NewGuid().ToString()),
             Guid.NewGuid().ToString("N"));
 
-    [TestCaseSource(typeof(LabVisibilityActions), nameof(LabVisibilityActions.All))]
+    // lab.preview ima politiku (AUT-07); ostale dve dok ih Stojanović i Kovačević ne dodaju.
+    private static readonly string[] ActionsWithoutPolicy =
+        [LabVisibilityActions.StudentView, LabVisibilityActions.KeyRead];
+
+    [TestCaseSource(nameof(ActionsWithoutPolicy))]
     public async Task RegisteredActionWithoutPolicy_IsDenied(string action)
     {
         await using var provider = BuildProvider();
