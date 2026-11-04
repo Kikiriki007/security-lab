@@ -5,3 +5,14 @@ main { max-width: 900px; margin: 8vh auto; padding: 0 24px; }
 h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; }
 .eyebrow { font-weight: 700; letter-spacing: .12em; color: #315d8a; }
 section { background: white; border: 1px solid #e1e6ed; border-radius: 12px; padding: 22px; margin-top: 32px; }
+form { display: grid; gap: 8px; max-width: 420px; }
+label { font-weight: 600; margin-top: 8px; }
+input { padding: 10px 12px; border: 1px solid #c5cfdb; border-radius: 8px; font: inherit; }
+input:focus-visible, button:focus-visible { outline: 2px solid #315d8a; outline-offset: 2px; }
+button { margin-top: 12px; padding: 10px 14px; border: 0; border-radius: 8px; background: #315d8a; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .6; cursor: not-allowed; }
+.hint { margin: 0; font-size: .875rem; color: #5b6b7f; }
+.result { margin-top: 12px; padding: 10px 12px; border-radius: 8px; }
+.result p { margin: 0 0 4px; }
+.result.ok { background: #e8f5ec; border: 1px solid #9ad0a8; }
+.result.error { background: #fdecec; border: 1px solid #e3a3a3; }
