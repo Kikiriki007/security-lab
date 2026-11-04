@@ -115,7 +115,7 @@ public sealed class CourseService : ICourseService
         if (!await _authorization.CanArchiveAsync(
                 userId, courseId, cancellationToken))
         {
-            return Error.Forbidden("Not allowed to archive this course.");
+            return Error.NotFound("Course not found.");
         }
 
         // 3. nadji kurs

@@ -154,7 +154,7 @@ public class CourseServiceTests
     }
 
     [Test]
-public async Task Archive_UserWithoutPermission_ReturnsForbidden()
+public async Task Archive_UserWithoutPermission_ReturnsNotFound()
 {
     var course = new Course(
         "ARCHIVE-DENIED",
@@ -169,7 +169,7 @@ public async Task Archive_UserWithoutPermission_ReturnsForbidden()
 
     var result = await service.ArchiveAsync(course.Id);
 
-    Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Forbidden));
+    Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.NotFound));
 
     _db.ChangeTracker.Clear();
 
