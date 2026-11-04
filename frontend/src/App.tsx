@@ -1,3 +1,4 @@
+import CourseworkKt1 from './components/CourseworkKt1'
 import { useEffect, useState } from 'react'
 import CreateAccountForm from './components/CreateAccountForm'
 
@@ -14,5 +15,6 @@ export default function App() {
     <p>An interactive laboratory platform for the Fundamentals of Information Security course. Develop features through the assigned project components.</p>
     <section><h2>Development status</h2><p>{health}</p><p>KT1: initial implementation, component architecture, and data flow diagram.</p></section>
     <section><h2>Kreiranje naloga (administrator)</h2><CreateAccountForm /></section>
+    <CourseworkKt1 />
   </main>
 }

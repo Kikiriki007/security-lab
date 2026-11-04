@@ -169,3 +169,11 @@ dotnet ef database update --project backend/Platform.Laboratories.Infrastructure
 ```
 
 U `.github/workflows/ci.yml` dodat je job za ove testove i proveru migracionog snapshot-a. Iste komande su proverene lokalno; prvo izvršavanje na GitHub-u predstoji nakon push-a i pull request-a.
+
+## Povezivanje sa zajedničkim solution-om
+
+REV-05 projekti su u solution folderu `Publication`. Reference iz API-ja su u posebnoj `Laboratories` grupi u `Platform.Api.csproj`. Namespace za registraciju je izdvojen u `GlobalUsings.Laboratories.cs`, a `AddLaboratoriesPersistence` se poziva nakon registracije `TimeProvider` servisa u `Program.cs`.
+
+Pri usklađivanju sa `main` granom 04.11.2026. sačuvani su svi integrisani moduli. Prošli su build svih 22 projekta, svih 497 testova solution-a, frontend build, provera migracionog snapshot-a i 41 KT1 HTTP demo provera. REV-05 i dalje ima 61 domenski/model test i 20 PostgreSQL integracionih testova.
+
+Otvoreni PR-ovi drugih modula provereni su radi preklapanja u zajedničkim fajlovima; njihov neintegrisani kod nije preuzet. Odvojene reference smanjuju preklapanje, ali nove izmene istih fajlova mogu ponovo zahtevati usklađivanje pre merge-a.
