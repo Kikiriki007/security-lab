@@ -8,7 +8,8 @@ namespace Team21.Acc.Infrastructure.Groups.Services;
 
 /// <summary>
 /// Server-side material visibility (ACC-06). The course and groups always come from the material's
-/// rule, never from the request. Rights are read again on every call.
+/// rule, never from the request. Rights are read again on every call. In an archived course only the
+/// teacher and a reviewing assistant still see materials.
 /// </summary>
 public class MaterialVisibilityService : IMaterialVisibilityService
 {
@@ -18,6 +19,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
     private readonly ICorrelationContext _correlation;
     private readonly IAccountStatusReader _accounts;
     private readonly ICourseMembershipReader _courseMembers;
+    private readonly ICourseStateReader _courseStates;
     private readonly IMaterialAccessRuleReader _rules;
     private readonly IGroupMembershipReader _groups;
     private readonly IVisibilityAuditWriter _audit;
@@ -28,6 +30,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         ICorrelationContext correlation,
         IAccountStatusReader accounts,
         ICourseMembershipReader courseMembers,
+        ICourseStateReader courseStates,
         IMaterialAccessRuleReader rules,
         IGroupMembershipReader groups,
         IVisibilityAuditWriter audit,
@@ -37,6 +40,7 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         _correlation = correlation;
         _accounts = accounts;
         _courseMembers = courseMembers;
+        _courseStates = courseStates;
         _rules = rules;
         _groups = groups;
         _audit = audit;
@@ -65,6 +69,10 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         if (membership is not { Active: true } || membership.CourseId != rule.CourseId)
             return await DenyMaterialAsync(userId, rule.CourseId, material, action, DenialReason.NotCourseMember, ct);
 
+        var courseDenial = await CheckCourseAsync(rule.CourseId, membership, ct);
+        if (courseDenial is not null)
+            return await DenyMaterialAsync(userId, rule.CourseId, material, action, courseDenial.Value, ct);
+
         if (SeesAll(membership))
             return Result.Success();
 
@@ -90,6 +98,10 @@ public class MaterialVisibilityService : IMaterialVisibilityService
         if (membership is not { Active: true } || membership.CourseId != courseId)
             return await DenyCourseAsync(userId, courseId, DenialReason.NotCourseMember, ct);
 
+        var courseDenial = await CheckCourseAsync(courseId, membership, ct);
+        if (courseDenial is not null)
+            return await DenyCourseAsync(userId, courseId, courseDenial.Value, ct);
+
         var rules = (await _rules.ListByCourseAsync(courseId, ct))
             .Where(r => r.CourseId == courseId)
             .ToList();
@@ -113,6 +125,16 @@ public class MaterialVisibilityService : IMaterialVisibilityService
     private static bool SeesAll(CourseMembership membership) =>
         membership.Role == CourseRole.Teacher
         || (membership.Role == CourseRole.Assistant && membership.CanReview);
+
+    // null means the course is usable for this member
+    private async Task<DenialReason?> CheckCourseAsync(Guid courseId, CourseMembership membership, CancellationToken ct) =>
+        await _courseStates.GetStateAsync(courseId, ct) switch
+        {
+            CourseState.Active => null,
+            CourseState.Archived when SeesAll(membership) => null,
+            CourseState.Archived => DenialReason.CourseArchived,
+            _ => DenialReason.UnknownCourse
+        };
 
     // null means visible
     private static DenialReason? Check(MaterialAccessRule rule, IReadOnlySet<Guid> groupIds) =>

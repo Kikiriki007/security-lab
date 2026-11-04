@@ -7,7 +7,8 @@ namespace Team21.Acc.Infrastructure.Groups.Fakes;
 
 /// <summary>
 /// Development only. Groups A and B in the demo course, StudentA in A, StudentB in B, one assignment
-/// restricted to A and one open to the whole course. Runs once, a removed membership stays removed.
+/// restricted to A and one open to the whole course, plus one material in the archived demo course.
+/// Each part is added once, a removed membership stays removed.
 /// </summary>
 public class DemoGroupsSeeder
 {
@@ -21,6 +22,17 @@ public class DemoGroupsSeeder
     /// <summary>Returns false when the demo data was already there.</summary>
     public async Task<bool> SeedAsync(CancellationToken ct = default)
     {
+        var added = await SeedGroupsAsync(ct);
+        added |= await SeedArchivedCourseAsync(ct);
+
+        if (added)
+            await _context.SaveChangesAsync(ct);
+
+        return added;
+    }
+
+    private async Task<bool> SeedGroupsAsync(CancellationToken ct)
+    {
         // Deleted rows count too, so a demo removal is not undone on restart
         var seeded = await _context.Groups
             .IgnoreQueryFilters([TeamDbContextBase.SoftDeleteFilter])
@@ -32,8 +44,8 @@ public class DemoGroupsSeeder
         var groupA = NewGroup(DemoIds.GroupA, "A");
         var groupB = NewGroup(DemoIds.GroupB, "B");
 
-        var restricted = NewAudience(DemoIds.RestrictedToA, MaterialVisibility.RestrictedToGroups);
-        var courseWide = NewAudience(DemoIds.CourseWide, MaterialVisibility.CourseWide);
+        var restricted = NewAudience(DemoIds.Course, DemoIds.RestrictedToA, MaterialVisibility.RestrictedToGroups);
+        var courseWide = NewAudience(DemoIds.Course, DemoIds.CourseWide, MaterialVisibility.CourseWide);
 
         _context.Groups.AddRange(groupA, groupB);
         _context.GroupMembers.AddRange(
@@ -47,7 +59,21 @@ public class DemoGroupsSeeder
             CreatedBy = DemoIds.Teacher
         });
 
-        await _context.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private async Task<bool> SeedArchivedCourseAsync(CancellationToken ct)
+    {
+        var seeded = await _context.MaterialAudiences
+            .IgnoreQueryFilters([TeamDbContextBase.SoftDeleteFilter])
+            .AnyAsync(a => a.MaterialId == DemoIds.InArchivedCourse, ct);
+
+        if (seeded)
+            return false;
+
+        _context.MaterialAudiences.Add(
+            NewAudience(DemoIds.ArchivedCourse, DemoIds.InArchivedCourse, MaterialVisibility.CourseWide));
+
         return true;
     }
 
@@ -66,9 +92,9 @@ public class DemoGroupsSeeder
         CreatedBy = DemoIds.Teacher
     };
 
-    private static MaterialAudience NewAudience(Guid materialId, MaterialVisibility visibility) => new()
+    private static MaterialAudience NewAudience(Guid courseId, Guid materialId, MaterialVisibility visibility) => new()
     {
-        CourseId = DemoIds.Course,
+        CourseId = courseId,
         MaterialType = MaterialType.Assignment,
         MaterialId = materialId,
         Visibility = visibility,

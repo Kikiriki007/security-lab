@@ -8,7 +8,9 @@ public enum DenialReason
     NoRule = 3,
     NotCourseMember = 4,
     NotInGroup = 5,
-    UnknownVisibility = 6
+    UnknownVisibility = 6,
+    UnknownCourse = 7,
+    CourseArchived = 8
 }
 
 /// <summary>

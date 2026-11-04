@@ -21,4 +21,5 @@ public static class DemoIds
     // Assignment ids, as the ASN module would own them
     public static readonly Guid RestrictedToA = Guid.Parse("00000000-0000-0000-0000-00000000d00a");
     public static readonly Guid CourseWide = Guid.Parse("00000000-0000-0000-0000-00000000d0cc");
+    public static readonly Guid InArchivedCourse = Guid.Parse("00000000-0000-0000-0000-00000000d0a0");
 }
