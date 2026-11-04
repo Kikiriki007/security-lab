@@ -1,3 +1,4 @@
+using Platform.Api.Modules.Kt1;
 using Platform.Api.Modules.Laboratories;
 
 using Platform.Access.Composition;
@@ -26,6 +27,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Access modul
 builder.Services.AddAccessControl();
+var kt1Enabled = Kt1Endpoints.Enabled(builder.Environment, builder.Configuration);
+if (kt1Enabled) builder.Services.AddCourseworkKt1();
 
 // IDN-01: registracija naloga
 builder.Services.AddIdentityModule();
@@ -76,6 +79,12 @@ var app = builder.Build();
 
 // Identity Rate Limiting
 app.UseIdentityRateLimiting();
+if (kt1Enabled)
+{
+    app.UseAuthentication();
+    app.RegisterCourseworkPolicies();
+    app.MapCourseworkKt1();
+}
 
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();

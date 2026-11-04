@@ -9,4 +9,5 @@
   <Project Path="Platform.LabVisibility/Platform.LabVisibility.csproj" />
   <Project Path="Platform.RateLimiting.Tests/Platform.RateLimiting.Tests.csproj" />
   <Project Path="Platform.Tests/Platform.Tests.csproj" />
+  <Project Path="Platform.Kt1.Tests/Platform.Kt1.Tests.csproj" />
 </Solution>
