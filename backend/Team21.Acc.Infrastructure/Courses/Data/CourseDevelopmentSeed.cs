@@ -6,7 +6,7 @@ namespace Team21.Acc.Infrastructure.Courses.Data;
 /// <summary>Opt-in sample data. Never called automatically by migrations or application startup.</summary>
 public static class CourseDevelopmentSeed
 {
-    private static readonly Guid SampleActor = Guid.Parse("10000000-0000-0000-0000-000000000001");
+    private static readonly Guid SampleActor = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     public static async Task SeedAsync(
         ICoursesDbContext context, string environmentName, CancellationToken cancellationToken = default)
