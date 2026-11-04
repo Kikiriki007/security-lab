@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace Team21.Acc.Core.Groups.Dtos;
 
-
-namespace Team21.Acc.Core.Groups.Dtos;
-
+/// <summary>A group as the api returns it. Status is "Active" or "Archived".</summary>
 public sealed record GroupDto(
     Guid Id,
     Guid CourseId,
     string Name,
-    GroupStatus Status
-);
+    string Status);

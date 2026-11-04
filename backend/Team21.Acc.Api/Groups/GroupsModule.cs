@@ -1,9 +1,9 @@
-using Team21.Acc.Core.Groups.Interfaces;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Team21.Acc.Core.Groups;
+using Team21.Acc.Core.Groups.Interfaces;
 using Team21.Acc.Core.Groups.Visibility.Interfaces;
 using Team21.Acc.Infrastructure.Groups.Defaults;
 using Team21.Acc.Infrastructure.Groups.Fakes;
