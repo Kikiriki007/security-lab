@@ -21,12 +21,16 @@ using Platform.Audit.Composition;
 using Platform.LabVisibility.Composition;
 using Platform.LabVisibility.Contracts;
 using Platform.LabVisibility.Infrastructure.Membership;
+using Platform.Api.Modules.Membership;
 
 // Oba modula imaju IAccessDecision, zato koristimo alias.
 using IdentityAccessDecision = Platform.Api.Services.Identity.IAccessDecision;
 using PlatformAccessDecision = Platform.Access.Contracts.IAccessDecision;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ACC-02: clanstvo u kursu (Platform.Membership)
+builder.Services.AddMembership(builder.Environment);
 
 // Access modul
 builder.Services.AddAccessControl();
@@ -44,6 +48,8 @@ else
 {
     builder.Services.AddSingleton<IRequestSubjectResolver, UnauthenticatedSubjectResolver>();
 }
+
+
 
 // Servisi sa main grane
 builder.Services.AddAudit();
@@ -119,6 +125,10 @@ if (kt1Enabled)
 // IDN-01: politike i endpoint za kreiranje naloga
 app.Services.RegisterIdentityAccess();
 app.MapAccountEndpoints();
+
+
+// ACC-02: upis studenta u kurs
+await app.MapMembershipAsync();
 
 // AUT-04/AUT-07: radnje i politike za prikaz laboratorije
 app.Services.RegisterLabVisibilityAccess();
