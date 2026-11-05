@@ -17,6 +17,7 @@ public sealed class LaboratoriesHttpTests
     private const string Route = "/api/laboratories/";
     private const string TestUserHeader = "X-Test-User";
     private const string Teacher = "marko:Teacher";
+    private const string OtherTeacher = "jelena:Teacher";
     private const string Student = "ana:Student";
 
     // ---------- Provera pristupa pre endpoint-a (kostur) ----------
@@ -77,6 +78,7 @@ public sealed class LaboratoriesHttpTests
 
     [TestCase("Production", "GET", "/api/laboratories/")]
     [TestCase("Production", "POST", "/api/laboratories/")]
+    [TestCase("Production", "GET", "/api/laboratories/11111111-1111-1111-1111-111111111111")]
     [TestCase("Staging", "GET", "/api/laboratories/")]
     [TestCase("Staging", "POST", "/api/laboratories/")]
     [TestCase("Staging", "POST", "/api/labs/")]
@@ -178,6 +180,81 @@ public sealed class LaboratoriesHttpTests
             Assert.That(teacher.Headers.Location?.OriginalString, Does.StartWith("/api/laboratories/"));
             Assert.That(student.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
         });
+    }
+
+    // ---------- GET /{id}: citanje ----------
+
+    [Test]
+    public async Task GetLabById_WhenOwnerReads_Returns200WithSameData()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Analiza logova");
+
+        using var response = await client.SendAsync(CreateRequest("GET", $"{Route}{created.Id}", Teacher));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var read = await response.Content.ReadFromJsonAsync<LaboratoryResponse>();
+        Assert.That(read, Is.EqualTo(created));
+    }
+
+    [Test]
+    public async Task GetLabById_WhenLabBelongsToAnotherTeacher_Returns404SameAsMissing()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Tudji nacrt");
+
+        using var foreign = await client.SendAsync(CreateRequest("GET", $"{Route}{created.Id}", OtherTeacher));
+        using var missing = await client.SendAsync(CreateRequest("GET", $"{Route}{Guid.NewGuid()}", OtherTeacher));
+        string foreignBody = await foreign.Content.ReadAsStringAsync();
+        string missingBody = await missing.Content.ReadAsStringAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(foreign.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(foreignBody, Is.EqualTo(missingBody));
+            Assert.That(foreignBody, Does.Not.Contain("Tudji nacrt"));
+            Assert.That(foreignBody, Does.Not.Contain(created.Id.ToString()));
+        });
+    }
+
+    [Test]
+    public async Task GetLabById_WhenStudentReads_Returns403WithoutContent()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Nacrt nije za studente");
+
+        using var response = await client.SendAsync(CreateRequest("GET", $"{Route}{created.Id}", Student));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        Assert.That(await response.Content.ReadAsStringAsync(), Does.Not.Contain("Nacrt nije za studente"));
+    }
+
+    [Test]
+    public async Task GetLabById_WhenAnonymous_Returns401()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Bez identiteta");
+
+        using var response = await client.SendAsync(CreateRequest("GET", $"{Route}{created.Id}", null));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [TestCase("not-a-guid")]
+    [TestCase("00000000-0000-0000-0000-00000000000Z")]
+    [TestCase("1%27%20OR%20%271%27%3D%271")]
+    public async Task GetLabById_WhenIdIsNotAGuid_Returns404(string rawId)
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(CreateRequest("GET", $"{Route}{rawId}", Teacher));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
     // ---------- Pomocne metode ----------

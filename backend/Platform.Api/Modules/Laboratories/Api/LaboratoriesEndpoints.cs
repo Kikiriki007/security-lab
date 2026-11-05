@@ -9,7 +9,7 @@ namespace Platform.Api.Modules.Laboratories.Api;
 //   1. SafeErrors          - neocekivana greska postaje genericki 500, bez stack trace-a
 //   2. RequireLabAccess    - identitet (401) i uloga/poznata radnja (403), pre citanja tela
 //   3. citanje i provera tela zahteva (400)
-//   4. LaboratoryService   - autor iz identiteta, domen i skladiste
+//   4. LaboratoryService   - vlasnistvo (404), domen i skladiste
 public static class LaboratoriesEndpoints
 {
     // Kanonska putanja (koriste je frontend i postojeci testovi).
@@ -55,6 +55,15 @@ public static class LaboratoriesEndpoints
                 _ => ToFailure(result.Status),
             };
         }).RequireLabAccess(LabActions.Create);
+
+        // GET /api/laboratories/{id}  ->  200 ili 404 (nepostojeca ili tudja, isti odgovor)
+        group.MapGet("/{id:guid}", async (Guid id, HttpContext http, [FromServices] LaboratoryService service, [FromServices] IIdentityContext caller) =>
+        {
+            LabResult result = await service.GetAsync(id, caller, http.RequestAborted);
+            return result.Status == LabResultStatus.Ok
+                ? Results.Ok(ToResponse(result.Laboratory!))
+                : ToFailure(result.Status);
+        }).RequireLabAccess(LabActions.Read);
     }
 
     private static LaboratoryResponse ToResponse(Laboratory lab) =>
@@ -65,6 +74,9 @@ public static class LaboratoriesEndpoints
         LabResultStatus.InvalidTitle => Results.BadRequest(new ApiErrorResponse(
             LabErrorCodes.InvalidTitle,
             $"Laboratory title is required and must not exceed {Laboratory.MaxTitleLength} characters.")),
+        // Isti tekst za nepostojecu i tudju laboratoriju; bez ID-a i internih detalja.
+        LabResultStatus.NotFound => Results.NotFound(new ApiErrorResponse(
+            LabErrorCodes.NotFound, "Laboratory was not found.")),
         LabResultStatus.Unauthenticated => Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Unauthenticated"),
         _ => Results.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Unexpected error"),
     };

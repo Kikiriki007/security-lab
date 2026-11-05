@@ -8,6 +8,9 @@ public sealed class FakeAccessDecision : IAccessDecision
     {
         [LabActions.List] = [PlatformRole.Student, PlatformRole.Teacher, PlatformRole.Assistant, PlatformRole.Administrator],
         [LabActions.Create] = [PlatformRole.Teacher],
+        // LAB-01 API: citanje nacrta je nastavnicka radnja.
+        // Uloga je samo prvi uslov; vlasnistvo nad konkretnom laboratorijom proverava LaboratoryService.
+        [LabActions.Read] = [PlatformRole.Teacher],
     };
 
     public AccessResult Decide(IIdentityContext subject, string action, string? resourceId = null)

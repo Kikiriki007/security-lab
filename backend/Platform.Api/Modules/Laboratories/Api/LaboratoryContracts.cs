@@ -21,4 +21,5 @@ public static class LabErrorCodes
 {
     public const string InvalidTitle = "INVALID_TITLE";
     public const string InvalidBody = "INVALID_BODY";
+    public const string NotFound = "NOT_FOUND";
 }

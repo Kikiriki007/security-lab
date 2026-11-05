@@ -6,6 +6,7 @@ public enum LabResultStatus
 {
     Ok,
     InvalidTitle,
+    NotFound,
     Unauthenticated
 }
 
@@ -13,12 +14,16 @@ public sealed record LabResult(LabResultStatus Status, Laboratory? Laboratory = 
 {
     public static LabResult Ok(Laboratory laboratory) => new(LabResultStatus.Ok, laboratory);
     public static readonly LabResult InvalidTitle = new(LabResultStatus.InvalidTitle);
+    public static readonly LabResult NotFound = new(LabResultStatus.NotFound);
     public static readonly LabResult Unauthenticated = new(LabResultStatus.Unauthenticated);
 }
 
-// LAB-01 slucaj upotrebe: kreiranje laboratorije.
+// LAB-01 slucajevi upotrebe: kreiranje i citanje laboratorije.
 //
-// Poziva se tek posle AccessCheckFilter-a (uloga i poznata radnja).
+// Poziva se tek posle AccessCheckFilter-a (uloga i poznata radnja). Ovde se dodatno proverava
+// vlasnistvo nad konkretnom laboratorijom: nastavnik vidi i menja samo laboratorije koje je
+// sam kreirao. Tudja laboratorija se prikazuje kao nepostojeca (404), da odgovor ne otkrije
+// da postoji. Siri pristup (kurs, saradnici) dolazi sa LAB-03 / ACC integracijom.
 public sealed class LaboratoryService(
     ILaboratoryRepository repository,
     TimeProvider timeProvider,
@@ -58,6 +63,24 @@ public sealed class LaboratoryService(
 
         return LabResult.Ok(laboratory);
     }
+
+    public async Task<LabResult> GetAsync(
+        Guid id, IIdentityContext caller, CancellationToken cancellationToken)
+    {
+        Guid? callerId = CallerId.From(caller);
+        if (callerId is null)
+        {
+            return LabResult.Unauthenticated;
+        }
+
+        Laboratory? laboratory = await repository.GetByIdAsync(id, cancellationToken);
+        return IsVisibleTo(laboratory, callerId.Value)
+            ? LabResult.Ok(laboratory!)
+            : LabResult.NotFound;
+    }
+
+    private static bool IsVisibleTo(Laboratory? laboratory, Guid callerId) =>
+        laboratory is not null && laboratory.CreatedBy == callerId;
 
     // Brza provera pre domena; konacno pravilo (obavezan, najvise 200 znakova) je u Laboratory.
     private static bool IsAcceptableTitle(string? title) =>
