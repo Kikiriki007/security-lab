@@ -35,7 +35,9 @@ public static class RevisionAuditEventFactory
             details["policyId"] = decision.PolicyId;
         }
 
-        if (!string.IsNullOrWhiteSpace(decision.PolicyVersion))
+        if (!string.IsNullOrWhiteSpace(decision.PolicyVersion) &&
+            System.Text.RegularExpressions.Regex.IsMatch(
+                decision.PolicyVersion, @"^v[0-9]{1,4}(\.[0-9]{1,4}){0,2}$"))
         {
             details["policyVersion"] = decision.PolicyVersion;
         }
@@ -56,3 +58,4 @@ public static class RevisionAuditEventFactory
         _ => "policy_error"
     };
 }
+
