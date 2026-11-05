@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Platform.Access.Contracts;
+using Platform.Access.AspNet;
 using Platform.Access.Application.Options;
 using Platform.Access.Application.Services;
 using Platform.Access.Domain.Enums;
@@ -93,7 +94,9 @@ public static class Kt1Endpoints
 
     public static void MapCourseworkKt1(this WebApplication app)
     {
-        var g = app.MapGroup("/api/kt1");
+        // Development-only simulator performs its own cookie and isolated-policy checks.
+        // Allow the request to reach those checks rather than blanket-denying every KT1 route.
+        var g = app.MapGroup("/api/kt1").AllowPublic();
         g.AddEndpointFilter(async (context, next) =>
         {
             var http = context.HttpContext;
