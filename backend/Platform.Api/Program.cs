@@ -9,11 +9,11 @@ using Platform.Access.Contracts;
 using Platform.Access.Domain.Enums;
 using Platform.Access.Domain.Models;
 
-using Platform.Identity.Composition;
-using Platform.Api.Endpoints;
-using Platform.Api.Security;
+using Platform.Identity;
+using Platform.Api.Endpoints.Identity;
+using Platform.Api.Interfaces.Identity;
 
-using Platform.Api.Domain.Identity;
+using Platform.Identity.Entities;
 using Platform.Api.Middlewares;
 using Platform.Api.Modules.Identity.RateLimiting;
 using Platform.Api.Services.Identity;
@@ -23,7 +23,7 @@ using Platform.LabVisibility.Contracts;
 using Platform.LabVisibility.Infrastructure.Membership;
 
 // Oba modula imaju IAccessDecision, zato koristimo alias.
-using IdentityAccessDecision = Platform.Api.Services.Identity.IAccessDecision;
+using IdentityAccessDecision = Platform.Api.Interfaces.Identity.IAccessDecision;
 using PlatformAccessDecision = Platform.Access.Contracts.IAccessDecision;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,6 +52,9 @@ builder.Services.AddIdentityRateLimiting(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
+
+builder.Services.AddLaboratoriesPersistence(
+    builder.Configuration.GetConnectionString("Laboratories"));
 
 builder.Services.AddSingleton<IAccountRepository, InMemoryAccountRepository>();
 builder.Services.AddSingleton<ICredentialAuthenticator, UnavailableCredentialAuthenticator>();
