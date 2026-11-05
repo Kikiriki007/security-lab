@@ -1,47 +1,79 @@
-# LAB-06 – Prerequisite Access Control
+# Project component: LAB-06, prerequisites and logical learning path
 
-## 1. Purpose
+**Team:** 20
 
-The purpose of this component is to prevent students from starting a laboratory when its required prerequisite laboratories have not been completed.
+**Specification requirements:** LAB-06; ASN-07 (server-side condition, integration pending)
 
-Access is checked on the server side. The client interface does not make access-control decisions.
+## Responsibilities and boundaries
 
-## 2. Main components
+- Stores prerequisite relations between laboratories through `IPrerequisiteRepository`.
+- Rejects a laboratory as its own prerequisite, duplicate relations, and direct or indirect cycles.
+- `PrerequisiteAccessService` decides whether a student has unlocked a laboratory and returns the missing prerequisites.
+- LAB-06 does not take over ASN-04 or change `StartAttemptService`. Team 15 owns attempt start.
+- Implementation status: domain rules, access decision and storage adapter are implemented. HTTP endpoints and composition in `Platform.Api` are not implemented yet.
 
-* `PrerequisiteAccessService` – checks whether all required laboratories have been completed.
-* `IPrerequisiteRepository` – retrieves prerequisites for a laboratory.
-* `ICompletedLaboratories` – retrieves laboratories completed by a student.
-* `LaboratoryPrerequisiteAccessAdapter` – connects assignment starting with prerequisite verification.
-* `StartAttemptService` – rejects an attempt if prerequisites are not fulfilled.
+## Contracts
 
-## 3. Security flow
+| Contract | Direction | Status |
+|---|---|---|
+| `IPrerequisiteRepository` | Used by the LAB-06 access decision and future API | Implemented by `LabPrerequisiteStoreAdapter` and an in-memory test version |
+| `ILabPrerequisiteStore` | Provided by `Platform.LaboratoryPersistence` | Used through the adapter |
+| `ICompletedLaboratories` | Should be provided by attempts or results data | `StubCompletedLaboratories` is temporary |
+| `IPrerequisiteAccessService` | Offered to ASN-04 | Contract must be agreed with team 15 |
 
-1. A student requests to start an assignment.
-2. `StartAttemptService` checks the student's identity and authorization.
-3. `LaboratoryPrerequisiteAccessAdapter` resolves the laboratory revision.
-4. `PrerequisiteAccessService` checks the laboratory prerequisites.
-5. If all prerequisites are fulfilled, the request may continue.
-6. Otherwise, the request is rejected and no attempt is created.
+## Component architecture
 
-## 4. Threat – Control – Test – Evidence
+```mermaid
+flowchart LR
+  ASN[ASN-04 attempt start, team 15] -. planned .-> ACCESS[PrerequisiteAccessService]
+  ACCESS --> REPO[IPrerequisiteRepository]
+  ACCESS --> DONE[ICompletedLaboratories]
+  DONE --> STUB[StubCompletedLaboratories, temporary]
+  REPO --> ADAPTER[LabPrerequisiteStoreAdapter]
+  ADAPTER --> RULES[PrerequisiteRules]
+  ADAPTER --> STORE[ILabPrerequisiteStore]
+  STORE --> DB[(PostgreSQL lab_prerequisites)]
+```
 
-| Threat                                                               | Control                               | Test                                                | Evidence                                                  |
-| -------------------------------------------------------------------- | ------------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
-| Student directly calls the start-attempt API for a locked laboratory | Server-side prerequisite check        | `StartAttempt_WhenPrerequisitesNotFulfilled_Throws` | Unauthorized access exception; attempt count remains zero |
-| Student has not completed a required laboratory                      | `PrerequisiteAccessService`           | Unmet prerequisites test                            | `IsUnlocked` is false                                     |
-| Laboratory revision does not exist                                   | `LaboratoryPrerequisiteAccessAdapter` | `CanStart_WhenRevisionDoesNotExist_ReturnsFalse`    | Access is denied                                          |
-| Student ID is invalid                                                | Adapter input validation              | `CanStart_WhenStudentIdIsInvalid_ReturnsFalse`      | Access is denied                                          |
-| All prerequisites are fulfilled                                      | Server-side prerequisite check        | `StartAttempt_WhenPrerequisitesFulfilled_Succeeds`  | Attempt is created                                        |
+## Data flow diagram
 
-## 5. Current limitations
+```mermaid
+flowchart LR
+  T[Teacher] -->|Planned: add or remove prerequisite| P1[Validate relation and cycles]
+  S[Student] -->|Planned: request laboratory start| P2[Check prerequisites]
+  subgraph Server[Server trust boundary]
+    P1 -->|Read chain and write relation| D1[(lab_prerequisites)]
+    P2 -->|Read prerequisites| D1
+    P2 -->|Read completed laboratories| D2[(Completion data, currently stub)]
+  end
+  P1 -->|Result or denial| T
+  P2 -->|Unlocked or missing prerequisites| S
+```
 
-`StubCompletedLaboratories` is currently used as a temporary implementation of completed-laboratory data.
+Everything sent by a client is untrusted. The decision must be made on the server.
 
-A production implementation must use the actual student completion records.
+## Security requirements
 
-## 6. Demonstration
+- Server-side access checks: `PrerequisiteAccessService` makes the decision, but it is not enforced in the attempt flow until ASN-04 integration is complete.
+- Input validation and sensitive data: empty IDs and self-prerequisites are rejected. The component stores only laboratory IDs.
+- Negative scenarios: self-prerequisite, empty ID, duplicate, two-laboratory cycle, three-laboratory cycle and unmet prerequisite.
 
-Two scenarios are demonstrated:
+| Threat | Control | Test | Evidence |
+|---|---|---|---|
+| A circular chain locks laboratories forever | Chain traversal and `WouldCreateCycle` | `AddAsync_TwoLaboratoryCycle_IsRejected`, `AddAsync_ThreeLaboratoryCycle_IsRejected` | Result is `WouldCreateCycle` and nothing is written |
+| A student has not completed a required laboratory | `PrerequisiteAccessService` | `CheckAccessAsync_PrerequisiteNotCompleted_ReturnsLocked` | `IsUnlocked` is false |
+| An invalid identifier is used | ID validation | `CheckAccessAsync_EmptyStudentId_ThrowsArgumentException`, `CheckAccessAsync_EmptyLaboratoryId_ThrowsArgumentException` | `ArgumentException` |
 
-* A student who fulfilled all prerequisites can start the assignment.
-* A student who did not fulfill the prerequisites is denied access, even when the start request is sent directly without using the user interface.
+## Known limitations
+
+- Real completion data is not connected.
+- Prerequisites are not enforced at attempt start until the contract with team 15 is agreed.
+- No HTTP endpoint or `Platform.Api` registration exists yet.
+- Two concurrent additions could still create a cycle, because the check and write are not one database transaction.
+
+## Evidence of work
+
+- Pull request: #79. Earlier work: #41.
+- Run instructions: `dotnet test backend/SecurityLab.slnx`
+- Latest local result: 616 tests, 592 passed, 0 failed, 24 skipped.
+- Next steps: agree the ASN-04 contract, connect completion data, add API and composition, and make the cycle check and write transactional.
