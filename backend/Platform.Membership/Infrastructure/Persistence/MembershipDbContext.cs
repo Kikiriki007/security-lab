@@ -1,4 +1,6 @@
+
 using Microsoft.EntityFrameworkCore;
+using Platform.Membership.Domain;
 
 namespace Platform.Membership.Infrastructure.Persistence;
 
@@ -9,6 +11,8 @@ namespace Platform.Membership.Infrastructure.Persistence;
 public sealed class MembershipDbContext(DbContextOptions<MembershipDbContext> options) : DbContext(options)
 {
     public const string Schema = "membership";
+
+    public DbSet<CourseMember> CourseMembers => Set<CourseMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

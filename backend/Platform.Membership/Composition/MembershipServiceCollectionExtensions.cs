@@ -1,7 +1,9 @@
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Platform.Membership.Application;
 using Platform.Membership.Contracts;
 using Platform.Membership.Infrastructure;
 using Platform.Membership.Infrastructure.Courses;
@@ -28,6 +30,8 @@ public static class MembershipServiceCollectionExtensions
                 sp.GetRequiredService<IConfiguration>().GetConnectionString(MembershipConnection.Name),
                 npgsql => npgsql.MigrationsHistoryTable(
                     "__EFMigrationsHistory", MembershipDbContext.Schema)));
+
+        services.AddSingleton<IMembershipStore, EfMembershipStore>();
 
         if (environment.IsDevelopment())
         {
