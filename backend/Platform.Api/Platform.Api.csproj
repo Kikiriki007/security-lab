@@ -12,6 +12,8 @@
     <ProjectReference Include="..\Platform.Identity\Platform.Identity.csproj" />
     <ProjectReference Include="..\Platform.LabVisibility\Platform.LabVisibility.csproj" />
     <ProjectReference Include="..\Platform.Audit\Platform.Audit.csproj" />
+	<ProjectReference Include="..\Platform.Prerequisites\Platform.Prerequisites.csproj" />
+	<ProjectReference Include="..\Platform.Assignments\Platform.Assignments.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -119,4 +119,18 @@ public sealed class InMemoryLaboratoryRepository : ILaboratoryRepository
 
     private static Laboratory ToDomain(StoredLaboratory stored) =>
         Laboratory.Rehydrate(stored.Id, stored.Title, stored.Status, stored.CreatedBy, stored.CreatedAt);
+
+    public Task<LabRevision?> GetRevisionByIdAsync(
+    Guid revisionId,
+    CancellationToken cancellationToken = default)
+    {
+        lock (_sync)
+        {
+            LabRevision? revision = _revisions.Values
+                .SelectMany(revisions => revisions)
+                .FirstOrDefault(revision => revision.Id == revisionId);
+
+            return Task.FromResult(revision);
+        }
+    }
 }

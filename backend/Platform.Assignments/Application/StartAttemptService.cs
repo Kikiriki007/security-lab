@@ -10,15 +10,18 @@ public sealed class StartAttemptService
     private readonly IAttemptStore _attemptStore;
 
     private readonly IStartAttemptAuthorization _authorization;
+    private readonly ILaboratoryPrerequisiteAccess _prerequisiteAccess;
 
     public StartAttemptService(
         IAssignmentRepository assignmentRepository,
         IAttemptStore attemptStore,
-        IStartAttemptAuthorization authorization)
+        IStartAttemptAuthorization authorization,
+        ILaboratoryPrerequisiteAccess prerequisiteAccess)
     {
         _assignmentRepository = assignmentRepository;
         _attemptStore = attemptStore;
         _authorization = authorization;
+        _prerequisiteAccess = prerequisiteAccess;
     }
 
     private async ValueTask<Assignment?> LoadAssignmentAsync(
@@ -65,6 +68,17 @@ public sealed class StartAttemptService
             cancellationToken))
         {
             throw new UnauthorizedAccessException("Access denied.");
+        }
+
+        bool canStart = await _prerequisiteAccess.CanStartAsync(
+            studentId,
+            assignment.PublishedLabRevisionId,
+            cancellationToken);
+
+        if (!canStart)
+        {
+            throw new UnauthorizedAccessException(
+                "Laboratory prerequisites are not fulfilled.");
         }
 
         if (!IsAssignmentAvailable(assignment, DateTimeOffset.UtcNow))
