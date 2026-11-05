@@ -2,7 +2,9 @@ namespace Platform.Api.Modules.Laboratories.Api;
 
 // Javni HTTP ugovor LAB-01.
 //
-// Zahtev za kreiranje sadrzi naslov.
+// Zahtev namerno ima SAMO naslov. Polja koja klijent eventualno posalje (id, createdBy,
+// status, createdAt...) ne postoje u ovom tipu, pa se pri deserijalizaciji ignorisu:
+// klijent ne moze da izabere ID, autora ni status (mass assignment zastita).
 public sealed record CreateLaboratoryRequest(string? Title);
 
 public sealed record LaboratoryResponse(

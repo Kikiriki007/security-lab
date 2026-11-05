@@ -116,6 +116,54 @@ public sealed class LaboratoriesHttpTests
     }
 
     [Test]
+    public async Task PostLabs_WhenClientSendsOwnId_ServerIgnoresItAndAssignsNewId()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        Guid clientSuppliedId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        Guid clientSuppliedCreator = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        using var response = await client.SendAsync(CreateJsonRequest("POST", Route, Teacher, new
+        {
+            id = clientSuppliedId,
+            title = "RBAC i kontrola pristupa",
+            createdBy = clientSuppliedCreator,
+            status = "Archived",
+            createdAt = "2000-01-01T00:00:00Z",
+        }));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+        var created = await response.Content.ReadFromJsonAsync<LaboratoryResponse>();
+        Assert.That(created, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(created!.Id, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(created.Id, Is.Not.EqualTo(clientSuppliedId));
+            Assert.That(created.CreatedBy, Is.Not.EqualTo(clientSuppliedCreator));
+            Assert.That(created.Status, Is.EqualTo("Draft"));
+            Assert.That(created.CreatedAt.Year, Is.Not.EqualTo(2000));
+            Assert.That(created.Title, Is.EqualTo("RBAC i kontrola pristupa"));
+        });
+
+        // Klijentski ID nije zavrsio ni u skladistu.
+        var repository = factory.Services.GetRequiredService<ILaboratoryRepository>();
+        Assert.That(await repository.GetByIdAsync(clientSuppliedId), Is.Null);
+        Assert.That(await repository.GetByIdAsync(created!.Id), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task PostLabs_TwoCreatesWithSameTitle_GetDifferentIds()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        LaboratoryResponse first = await CreateLabAsync(client, Teacher, "Isti naslov");
+        LaboratoryResponse second = await CreateLabAsync(client, Teacher, "Isti naslov");
+
+        Assert.That(second.Id, Is.Not.EqualTo(first.Id));
+    }
+
+    [Test]
     public async Task PostLabs_ThroughAliasRoute_UsesSameChecks()
     {
         using var factory = new LaboratoriesHostFactory("Development");
@@ -133,6 +181,15 @@ public sealed class LaboratoriesHttpTests
     }
 
     // ---------- Pomocne metode ----------
+
+    private static async Task<LaboratoryResponse> CreateLabAsync(HttpClient client, string user, string title)
+    {
+        using var response = await client.SendAsync(CreateJsonRequest("POST", Route, user, new { title }));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+        var created = await response.Content.ReadFromJsonAsync<LaboratoryResponse>();
+        Assert.That(created, Is.Not.Null);
+        return created!;
+    }
 
     private static async Task<int> StoredCountAsync(WebApplicationFactory<Program> factory) =>
         (await factory.Services.GetRequiredService<ILaboratoryRepository>().ListAsync()).Count;
