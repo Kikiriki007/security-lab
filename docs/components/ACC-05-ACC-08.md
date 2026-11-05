@@ -203,3 +203,5 @@ produkcijskim endpoint-ima.
 Za konačnu integraciju svih timova ostaje obavezno da rute eksplicitno
 deklariraju `RequireAccess` ili odobreni `AllowPublic`; test endpoint
 coverage-a se ne isključuje radi zelenog CI-a.
+
+Integraciona provera 2026-11-05: resursne akcije Authoring i LabVisibility sada se registruju sa eksplicitnim tipom resursa i opsegom u kompoziciji pripadajućih modula; provera scope-a i dalje ostaje fail-closed.
