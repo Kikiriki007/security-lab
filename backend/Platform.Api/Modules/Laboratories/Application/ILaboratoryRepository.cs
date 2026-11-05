@@ -22,8 +22,6 @@ public interface ILaboratoryRepository
 
     // Revizije laboratorije, poredjane po broju.
     Task<IReadOnlyList<LabRevision>> GetRevisionsAsync(Guid laboratoryId, CancellationToken cancellationToken = default);
-
-    Task<LabRevision?> GetRevisionByIdAsync(Guid revisionId, CancellationToken cancellationToken = default);
 }
 
 public sealed class LaboratoryNotFoundException(Guid laboratoryId)

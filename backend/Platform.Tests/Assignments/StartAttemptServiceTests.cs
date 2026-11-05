@@ -1,3 +1,4 @@
+
 using NUnit.Framework;
 using Platform.Assignments.Application;
 using Platform.Assignments.Contracts;
@@ -11,13 +12,26 @@ public class StartAttemptServiceTests
     [Test]
     public void StartAttempt_WhenLimitReached_Throws()
     {
-        var assignment = CreateAssignment(maxAttempts: 2);
+        var assignment = new Assignment(
+            Guid.NewGuid(),
+            "course-oib",
+            "revision-1",
+            null,
+            DateTimeOffset.UtcNow.AddDays(1),
+            2);
+
+        var repository = new FakeAssignmentRepository(assignment);
         var attemptStore = new FakeAttemptStore(2);
-        var service = CreateService(assignment, attemptStore);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.StartAttemptAsync(
-                assignment.Id, "student-1", Guid.NewGuid()));
+                assignment.Id,
+                "student-1",
+                Guid.NewGuid()));
 
         Assert.That(exception!.Message,
             Is.EqualTo("Maximum number of attempts reached."));
@@ -26,12 +40,25 @@ public class StartAttemptServiceTests
     [Test]
     public async Task StartAttempt_WhenLimitNotReached_Succeeds()
     {
-        var assignment = CreateAssignment(maxAttempts: 3);
+        var assignment = new Assignment(
+            Guid.NewGuid(),
+            "course-oib",
+            "revision-1",
+            null,
+            DateTimeOffset.UtcNow.AddDays(1),
+            3);
+
+        var repository = new FakeAssignmentRepository(assignment);
         var attemptStore = new FakeAttemptStore(1);
-        var service = CreateService(assignment, attemptStore);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var attemptId = await service.StartAttemptAsync(
-            assignment.Id, "student-1", Guid.NewGuid());
+            assignment.Id,
+            "student-1",
+            Guid.NewGuid());
 
         Assert.That(attemptId, Is.Not.EqualTo(Guid.Empty));
     }
@@ -39,29 +66,54 @@ public class StartAttemptServiceTests
     [Test]
     public void StartAttempt_WhenAssignmentNotFound_Throws()
     {
-        var assignment = CreateAssignment();
+        var assignment = new Assignment(
+            Guid.NewGuid(),
+            "course-oib",
+            "revision-1",
+            null,
+            DateTimeOffset.UtcNow.AddDays(1),
+            3);
+
+        var repository = new FakeAssignmentRepository(assignment);
         var attemptStore = new FakeAttemptStore(0);
-        var service = CreateService(assignment, attemptStore);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<KeyNotFoundException>(
             async () => await service.StartAttemptAsync(
-                Guid.NewGuid(), "student-1", Guid.NewGuid()));
+                Guid.NewGuid(),
+                "student-1",
+                Guid.NewGuid()));
 
-        Assert.That(exception!.Message, Is.EqualTo("Assignment not found."));
+        Assert.That(exception!.Message,
+            Is.EqualTo("Assignment not found."));
     }
 
     [Test]
     public void StartAttempt_WhenDeadlineExpired_Throws()
     {
-        var assignment = CreateAssignment(
-            dueAtUtc: DateTimeOffset.UtcNow.AddDays(-1));
+        var assignment = new Assignment(
+            Guid.NewGuid(),
+            "course-oib",
+            "revision-1",
+            null,
+            DateTimeOffset.UtcNow.AddDays(-1),
+            3);
 
+        var repository = new FakeAssignmentRepository(assignment);
         var attemptStore = new FakeAttemptStore(0);
-        var service = CreateService(assignment, attemptStore);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.StartAttemptAsync(
-                assignment.Id, "student-1", Guid.NewGuid()));
+                assignment.Id,
+                "student-1",
+                Guid.NewGuid()));
 
         Assert.That(exception!.Message,
             Is.EqualTo("Assignment is not available."));
@@ -70,15 +122,28 @@ public class StartAttemptServiceTests
     [Test]
     public void StartAttempt_WhenAssignmentArchived_Throws()
     {
-        var assignment = CreateAssignment();
+        var assignment = new Assignment(
+            Guid.NewGuid(),
+            "course-oib",
+            "revision-1",
+            null,
+            DateTimeOffset.UtcNow.AddDays(1),
+            3);
+
         assignment.Archive();
 
+        var repository = new FakeAssignmentRepository(assignment);
         var attemptStore = new FakeAttemptStore(0);
-        var service = CreateService(assignment, attemptStore);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.StartAttemptAsync(
-                assignment.Id, "student-1", Guid.NewGuid()));
+                assignment.Id,
+                "student-1",
+                Guid.NewGuid()));
 
         Assert.That(exception!.Message,
             Is.EqualTo("Assignment is not available."));
@@ -87,9 +152,21 @@ public class StartAttemptServiceTests
     [Test]
     public async Task StartAttempt_WhenRequestRepeated_ReturnsSameAttempt()
     {
-        var assignment = CreateAssignment(maxAttempts: 1);
+        var assignment = new Assignment(
+            Guid.NewGuid(),
+            "course-oib",
+            "revision-1",
+            null,
+            DateTimeOffset.UtcNow.AddDays(1),
+            1);
+
+        var repository = new FakeAssignmentRepository(assignment);
         var attemptStore = new FakeAttemptStore(0);
-        var service = CreateService(assignment, attemptStore);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(true));
+
         var requestId = Guid.NewGuid();
 
         var firstAttempt = await service.StartAttemptAsync(
@@ -105,86 +182,31 @@ public class StartAttemptServiceTests
     [Test]
     public void StartAttempt_WhenAccessDenied_Throws()
     {
-        var assignment = CreateAssignment();
-        var attemptStore = new FakeAttemptStore(0);
-
-        var service = CreateService(
-            assignment,
-            attemptStore,
-            authorizationAllowed: false);
-
-        var exception = Assert.ThrowsAsync<UnauthorizedAccessException>(
-            async () => await service.StartAttemptAsync(
-                assignment.Id, "student-1", Guid.NewGuid()));
-
-        Assert.That(exception!.Message, Is.EqualTo("Access denied."));
-        Assert.That(attemptStore.AttemptCount, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void StartAttempt_WhenPrerequisitesNotFulfilled_Throws()
-    {
-        var assignment = CreateAssignment();
-        var attemptStore = new FakeAttemptStore(0);
-
-        var service = CreateService(
-            assignment,
-            attemptStore,
-            prerequisitesFulfilled: false);
-
-        var exception = Assert.ThrowsAsync<UnauthorizedAccessException>(
-            async () => await service.StartAttemptAsync(
-                assignment.Id, "student-1", Guid.NewGuid()));
-
-        Assert.That(
-            exception!.Message,
-            Is.EqualTo("Laboratory prerequisites are not fulfilled."));
-
-        Assert.That(attemptStore.AttemptCount, Is.EqualTo(0));
-    }
-
-    [Test]
-    public async Task StartAttempt_WhenPrerequisitesFulfilled_Succeeds()
-    {
-        var assignment = CreateAssignment();
-        var attemptStore = new FakeAttemptStore(0);
-
-        var service = CreateService(
-            assignment,
-            attemptStore,
-            prerequisitesFulfilled: true);
-
-        var attemptId = await service.StartAttemptAsync(
-            assignment.Id, "student-1", Guid.NewGuid());
-
-        Assert.That(attemptId, Is.Not.EqualTo(Guid.Empty));
-        Assert.That(attemptStore.AttemptCount, Is.EqualTo(1));
-    }
-
-    private static Assignment CreateAssignment(
-        int maxAttempts = 3,
-        DateTimeOffset? dueAtUtc = null)
-    {
-        return new Assignment(
+        var assignment = new Assignment(
             Guid.NewGuid(),
             "course-oib",
             "revision-1",
             null,
-            dueAtUtc ?? DateTimeOffset.UtcNow.AddDays(1),
-            maxAttempts);
-    }
+            DateTimeOffset.UtcNow.AddDays(1),
+            3);
 
-    private static StartAttemptService CreateService(
-        Assignment assignment,
-        FakeAttemptStore attemptStore,
-        bool authorizationAllowed = true,
-        bool prerequisitesFulfilled = true)
-    {
-        return new StartAttemptService(
-            new FakeAssignmentRepository(assignment),
-            attemptStore,
-            new FakeStartAttemptAuthorization(authorizationAllowed),
-            new FakeLaboratoryPrerequisiteAccess(prerequisitesFulfilled));
+        var repository = new FakeAssignmentRepository(assignment);
+        var attemptStore = new FakeAttemptStore(0);
+
+        var service = new StartAttemptService(
+            repository, attemptStore,
+            new FakeStartAttemptAuthorization(false));
+
+        var exception = Assert.ThrowsAsync<UnauthorizedAccessException>(
+            async () => await service.StartAttemptAsync(
+                assignment.Id,
+                "student-1",
+                Guid.NewGuid()));
+
+        Assert.That(exception!.Message,
+            Is.EqualTo("Access denied."));
+
+        Assert.That(attemptStore.AttemptCount, Is.EqualTo(0));
     }
 
     private sealed class FakeAssignmentRepository(
@@ -219,7 +241,8 @@ public class StartAttemptServiceTests
     {
         private int _attemptCount = existingAttempts;
 
-        private readonly Dictionary<(Guid, string, Guid), Guid> _requests = new();
+        private readonly Dictionary<(Guid, string, Guid), Guid>
+            _requests = new();
 
         public int AttemptCount => _attemptCount;
 
@@ -244,6 +267,7 @@ public class StartAttemptServiceTests
             }
 
             var attemptId = Guid.NewGuid();
+
             _requests.Add(key, attemptId);
             _attemptCount++;
 
@@ -258,18 +282,6 @@ public class StartAttemptServiceTests
             string studentId,
             Guid assignmentId,
             string courseId,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromResult(allow);
-        }
-    }
-
-    private sealed class FakeLaboratoryPrerequisiteAccess(bool allow)
-        : ILaboratoryPrerequisiteAccess
-    {
-        public ValueTask<bool> CanStartAsync(
-            string studentId,
-            string publishedLabRevisionId,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(allow);
