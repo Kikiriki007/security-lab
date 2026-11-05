@@ -57,7 +57,10 @@ public static class Kt1Endpoints
         var registry = app.Services.GetRequiredService<InMemoryAccessPolicyRegistry>();
         foreach (var action in new[] { AttemptPolicy.Read, AttemptPolicy.Update })
         {
-            catalog.Register(action);
+            // ACC-05 pre-registers built-in actions; do not register the same ID twice.
+            // Keep the original catalog definition (scope/resource type) intact.
+            if (!catalog.Contains(action))
+                catalog.Register(action);
             registry.Register(action, app.Services.GetRequiredService<AttemptPolicy>());
         }
         foreach (var action in new[] { AdministrationPolicy.Read, AdministrationPolicy.Rename, AdministrationPolicy.Delegate, AdministrationPolicy.Revoke })
