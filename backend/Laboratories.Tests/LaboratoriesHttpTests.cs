@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -128,6 +129,57 @@ public sealed class LaboratoriesHttpTests
         using var response = await client.SendAsync(CreateJsonRequest("POST", Route, Student, new { title = "Studentski pokusaj" }));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        Assert.That(await StoredCountAsync(factory), Is.EqualTo(0));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase(null)]
+    public async Task PostLabs_WhenTitleIsMissingOrBlank_Returns400AndStoresNothing(string? invalidTitle)
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(CreateJsonRequest("POST", Route, Teacher, new { title = invalidTitle }));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(await response.Content.ReadAsStringAsync(), Does.Contain(LabErrorCodes.InvalidTitle));
+        Assert.That(await StoredCountAsync(factory), Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task PostLabs_WhenTitleIsTooLong_Returns400AndStoresNothing()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(CreateJsonRequest("POST", Route, Teacher, new { title = new string('a', 201) }));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(await StoredCountAsync(factory), Is.EqualTo(0));
+    }
+
+    [TestCase("{ not json", "application/json")]
+    [TestCase("", "application/json")]
+    [TestCase("[]", "application/json")]
+    [TestCase("{\"title\":\"Lab\"}", "text/plain")]
+    public async Task PostLabs_WhenBodyIsMalformed_Returns400WithoutInternalDetails(string body, string contentType)
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        using var request = CreateRequest("POST", Route, Teacher);
+        request.Content = new StringContent(body, Encoding.UTF8, contentType);
+
+        using var response = await client.SendAsync(request);
+        string responseBody = await response.Content.ReadAsStringAsync();
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.Multiple(() =>
+        {
+            Assert.That(responseBody, Does.Contain(LabErrorCodes.InvalidBody));
+            Assert.That(responseBody, Does.Not.Contain("Exception"));
+            Assert.That(responseBody, Does.Not.Contain(" at "));
+        });
         Assert.That(await StoredCountAsync(factory), Is.EqualTo(0));
     }
 
