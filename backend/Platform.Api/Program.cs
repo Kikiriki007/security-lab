@@ -1,3 +1,4 @@
+using Platform.Api.Security.RevisionAuthorization;
 using Platform.Api.Modules.Kt1;
 using Platform.Api.Modules.Laboratories.Application;
 using Platform.Api.Modules.Laboratories.Infrastructure;
@@ -30,6 +31,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Access modul
 builder.Services.AddAccessControl();
+builder.Services.AddRevisionAuthorization();
 var kt1Enabled = Kt1Endpoints.Enabled(builder.Environment, builder.Configuration);
 if (kt1Enabled) builder.Services.AddCourseworkKt1();
 
@@ -70,7 +72,7 @@ builder.Services.AddScoped<LoginAccount>();
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddScoped<
-        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Interfaces.Identity.IIdentityContext,
         Platform.Api.Services.Identity.StubIdentityContext>();
 
     builder.Services.AddSingleton<
@@ -80,7 +82,7 @@ if (builder.Environment.IsDevelopment())
 else
 {
     builder.Services.AddScoped<
-        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Interfaces.Identity.IIdentityContext,
         Platform.Api.Services.Identity.AnonymousIdentityContext>();
 
     builder.Services.AddSingleton<
@@ -109,6 +111,7 @@ else
 
 // Kreiranje aplikacije
 var app = builder.Build();
+app.Services.RegisterRevisionPolicies();
 
 // Identity Rate Limiting
 app.UseIdentityRateLimiting();
@@ -189,3 +192,4 @@ if (app.Environment.IsDevelopment())
 app.Run();
 
 public partial class Program { }
+
