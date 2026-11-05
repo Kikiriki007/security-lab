@@ -10,9 +10,7 @@ using Platform.Access.Domain.Enums;
 using Platform.Access.Domain.Models;
 using Platform.Access.AspNet;
 
-using Platform.Identity.Composition;
 using Platform.Api.Endpoints;
-using Platform.Api.Security;
 using Platform.Identity;
 using Platform.Api.Endpoints.Identity;
 using Platform.Api.Interfaces.Identity;
@@ -90,7 +88,7 @@ builder.Services.AddScoped<LoginAccount>();
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddScoped<
-        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Interfaces.Identity.IIdentityContext,
         Platform.Api.Services.Identity.StubIdentityContext>();
 
     builder.Services.AddSingleton<
@@ -100,7 +98,7 @@ if (builder.Environment.IsDevelopment())
 else
 {
     builder.Services.AddScoped<
-        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Interfaces.Identity.IIdentityContext,
         Platform.Api.Services.Identity.AnonymousIdentityContext>();
 
     builder.Services.AddSingleton<
