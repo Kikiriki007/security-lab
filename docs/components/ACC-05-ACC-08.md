@@ -185,3 +185,21 @@ Ovim se proveravaju pokretanje API-ja i početni ACC-05 tok. Demo ruta je samo r
 4. Integracija sa centralnim `Platform.Audit` modulom nakon stabilizacije njegovog composition ugovora.
 5. Domenski ownership adapteri i preostala ACC-08 pravila.
 6. Jedinični, integracioni i negativni testovi u CI-ju.
+## Integracija razvojne KT1 demonstracije (ACC-04/ADM-08)
+
+KT1 endpoint-i su dostupni isključivo u Development okruženju uz eksplicitno
+`Kt1Demo:Enabled`. KT1 koristi **izolovan** `DefaultDenyAccessDecision` sa sopstvenim
+katalogom i registracijom svojih `AttemptPolicy` i `AdministrationPolicy` pravila.
+KT1 servisi dobijaju taj imenovani decision engine kroz DI fabrike, dok ostatak
+API-ja nastavlja da koristi globalni `IAccessDecision` iz ACC-05.
+
+Razlog je što KT1 simulacija i produkciona matrica imaju isto ime akcije
+`attempt.read`, ali različite izvore članstva i provere vlasništva. Ne sme se
+preskočiti konflikt registracije tako da jedan modul neprimetno nasledi politiku
+drugog. Oba engine-a zadržavaju fail-closed proveru opsega, resursa,
+identiteta i konkretne politike; KT1 ne postaje alternativna dozvola na
+produkcijskim endpoint-ima.
+
+Za konačnu integraciju svih timova ostaje obavezno da rute eksplicitno
+deklariraju `RequireAccess` ili odobreni `AllowPublic`; test endpoint
+coverage-a se ne isključuje radi zelenog CI-a.
