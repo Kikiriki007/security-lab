@@ -1,4 +1,3 @@
-﻿
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -12,6 +11,7 @@
     <ProjectReference Include="..\Platform.Identity\Platform.Identity.csproj" />
     <ProjectReference Include="..\Platform.LabVisibility\Platform.LabVisibility.csproj" />
     <ProjectReference Include="..\Platform.Audit\Platform.Audit.csproj" />
+    <ProjectReference Include="..\Platform.LaboratoryPersistence\Platform.LaboratoryPersistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>
