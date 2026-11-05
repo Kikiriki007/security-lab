@@ -4,7 +4,7 @@
 |---|---|
 | Tim | Tim 3 |
 | Zahtevi | ACC-05, ACC-08 |
-| Status | Početna implementacija |
+| Status | ACC-05 jezgro implementirano|
 | Projekat | `backend/Platform.Access` |
 | Studenti | PR 1/2023 Živanović Jovana<br>PR 16/2023 Musli Danijel<br>PR 18/2023 Spasić Veljko<br>PR 30/2023 Pavlović Sara<br>PR 32/2023 Stanković Pavle<br>PR 53/2023 Matić Željana<br>PR 60/2023 Todorović Nikolina |
 
@@ -27,6 +27,7 @@ Ugovor trenutno obuhvata:
 - `AccessRequest` — subjekt, akcija, resurs i korelacioni ID;
 - `AccessDecision` — ishod, razlog, politika, verzija i korelacioni ID;
 - `IActionCatalog`, `IAccessPolicyRegistry` i `IAccessAuditWriter` — granice za buduće adaptere.
+- `IResourceOwnershipResolver` — server-side granica za potvrdu vlasništva resursa.
 
 `IActionCatalog` izlaže tipizovane `ActionDefinition` zapise. Početni katalog sadrži
 akcije iz matrice ACC-05, uključujući scope (`Public`, `System` ili `Course`),
@@ -64,10 +65,24 @@ Fail-closed tok:
 2. nalog nije aktivan → `AccountNotActive`;
 3. akcija nije validna ili registrovana → `UnknownAction`;
 4. politika ne postoji → `NoPolicy`;
-5. greška u politici → `PolicyError`;
-6. samo uspešna politika može vratiti `Allow`.
+5. politika odbije zahtev → `PolicyDenied`;
+6. greška, izuzetak ili timeout u politici → `PolicyError`;
+7. neusklađen scope ili tip resursa → `PolicyError`;
+8. samo uspešna politika može vratiti `Allow`.
 
-Razvojni `NullAccessAuditWriter` je privremeni adapter bez skladištenja. On postoji da ugovor bude definisan, a trajni audit se dodaje kasnije tokom razvoja.
+`LoggerAccessAuditWriter` je trenutni lokalni adapter. Sanitizuje tekstualne vrednosti,
+hash-uje identifikatore resursa i subjekta i piše odluke preko `ILogger`, bez tajni,
+tela zahteva ili studentskih odgovora. Centralni `Platform.Audit` ugovor još nije
+direktno integrisan; integracija se radi nakon stabilizacije Audit modula.
+Testovi koriste eksplicitne recording/throwing audit fake-ove. `EmptyMembershipReader`
+i `EmptyResourceDescriptorResolver` ostaju namerni fail-closed fallback-i za slučaj
+da domenski adapteri nisu registrovani; ne predstavljaju placeholder poslovnu
+logiku i ne mogu odobriti zahtev.
+
+Za `attempt.read` i `attempt.submit` politika zahteva server-side potvrdu vlasništva.
+Ako resolver vlasništva nije dostupan ili ne potvrdi vlasnika, pristup se odbija.
+Ownership adapter je pripremljen kroz `IResourceOwnershipResolver`; konkretni domenski
+moduli treba da ga obezbede kroz dogovorenu integraciju.
 
 ## Dijagram arhitekture
 
@@ -80,7 +95,7 @@ flowchart LR
   REG --> POL[Policy adapter]
   DEC -->|AccessDecision| API
   ID[Identity / membership] -. future adapter .-> API
-  OWN[Ownership / attributes] -. future adapter .-> POL
+  OWN[IResourceOwnershipResolver] --> POL
 ```
 
 **Veza sa platformom:** `Platform.Api` je kompozicioni sloj; ostali moduli kasnije registruju svoje akcije, politike i server-side resolvere preko javnih ugovora.
@@ -147,6 +162,7 @@ Ovim se proveravaju pokretanje API-ja i početni ACC-05 tok. Demo ruta je samo r
 1. Dogovor sa Identity, Laboratories, Attempts i Audit timovima.
 2. Registrovane akcije i konkretne politike.
 3. Endpoint metadata i fallback-deny.
-4. Stvarni audit adapter.
-5. Ownership/scope, članstvo, server-side atributi i ACC-08 pravila.
-6. Jedinični, integracioni i negativni testovi.
+4. Integracija sa centralnim `Platform.Audit` modulom nakon stabilizacije njegovog composition ugovora.
+5. Domenski ownership adapteri i preostala ACC-08 pravila.
+6. Jedinični, integracioni i negativni testovi u CI-ju.
+

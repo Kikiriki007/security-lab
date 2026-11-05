@@ -7,6 +7,10 @@ using Platform.Access.Infrastructure.Policies;
 using Platform.Api.Modules.Access;
 using Platform.Api.Modules.Administration;
 
+// Alias je potreban jer Kt1 koristi isti interfejs kao Access modul, 
+// a ovim se izbegava konflikt imena prilikom build-a i jasno označava Kt1 zavisnost.
+using Kt1MembershipReader = Platform.Api.Modules.Access.IMembershipReader;
+
 namespace Platform.Api.Modules.Kt1;
 
 public static class Kt1Endpoints
@@ -35,7 +39,7 @@ public static class Kt1Endpoints
         });
         services.AddSingleton<DemoStore>();
         services.AddSingleton<IAccountReader>(sp => sp.GetRequiredService<DemoStore>());
-        services.AddSingleton<IMembershipReader>(sp => sp.GetRequiredService<DemoStore>());
+        services.AddSingleton<Kt1MembershipReader>(sp => sp.GetRequiredService<DemoStore>());
         services.AddSingleton<IAttemptStore>(sp => sp.GetRequiredService<DemoStore>());
         services.AddSingleton<ICourseAdministrationStore>(sp => sp.GetRequiredService<DemoStore>());
         services.AddSingleton<ISecurityAudit>(sp => sp.GetRequiredService<DemoStore>());

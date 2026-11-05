@@ -30,6 +30,7 @@ public sealed class CourseRoleAccessPolicyTests
         resources.SetCourse(laboratory, courseId);
         resources.SetCourse(assignment, courseId);
         resources.SetCourse(attempt, courseId);
+        resources.SetOwner(attempt, accountId);
     }
 
     [TestCase(CourseRole.Student, "lab.read", true)]
@@ -118,6 +119,18 @@ public sealed class CourseRoleAccessPolicyTests
 
         AddMembership(CourseRole.Teacher, status: MembershipStatus.Suspended);
         Assert.That(await policy.EvaluateAsync(request), Is.False);
+    }
+
+    [Test]
+    public async Task AttemptOwnership_IsRequiredForStudentReadAndSubmit()
+    {
+        AddMembership(CourseRole.Student);
+        Assert.That(await Evaluate("attempt.read"), Is.True);
+        Assert.That(await Evaluate("attempt.submit"), Is.True);
+
+        resources.SetOwner(attempt, Guid.NewGuid());
+        Assert.That(await Evaluate("attempt.read"), Is.False);
+        Assert.That(await Evaluate("attempt.submit"), Is.False);
     }
 
     [Test]

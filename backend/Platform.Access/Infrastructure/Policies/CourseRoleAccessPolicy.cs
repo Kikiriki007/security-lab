@@ -32,6 +32,23 @@ public sealed class CourseRoleAccessPolicy(
             return false;
         }
 
+        if (definition.RequiresOwnership)
+        {
+            if (resourceDescriptorResolver is not IResourceOwnershipResolver ownershipResolver)
+            {
+                return false;
+            }
+
+            var ownerId = await ownershipResolver.ResolveOwnerIdAsync(
+                request.Resource,
+                cancellationToken);
+
+            if (ownerId is null || ownerId == Guid.Empty || ownerId != accountId)
+            {
+                return false;
+            }
+        }
+
         var courseId = await resourceDescriptorResolver.ResolveCourseIdAsync(
             request.Resource,
             cancellationToken);

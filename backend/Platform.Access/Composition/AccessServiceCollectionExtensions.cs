@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Platform.Access.Application.Services;
 using Platform.Access.Application.Options;
 using Platform.Access.Contracts;
@@ -41,7 +42,9 @@ public static class AccessServiceCollectionExtensions
             return registry;
         });
         services.AddSingleton<IAccessPolicyRegistry>(sp => sp.GetRequiredService<InMemoryAccessPolicyRegistry>());
-        services.AddSingleton<IAccessAuditWriter, NullAccessAuditWriter>();
+        services.AddSingleton<IAccessAuditWriter>(sp =>
+            new LoggerAccessAuditWriter(
+                sp.GetService<ILogger<LoggerAccessAuditWriter>>()));
         services.AddSingleton<IAccessDecision, DefaultDenyAccessDecision>();
         services.AddHostedService<AccessConfigurationStartupCheck>();
 

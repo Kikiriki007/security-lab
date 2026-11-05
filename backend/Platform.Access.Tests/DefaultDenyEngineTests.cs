@@ -207,6 +207,7 @@ public class DefaultDenyEngineTests
         var decision = await fx.Engine().DecideAsync(AccessRequestBuilder.Default().Build());
 
         Assert.That(decision.Outcome, Is.EqualTo(AccessOutcome.Deny));
+        Assert.That(decision.DenialReason, Is.EqualTo(AccessDenialReason.PolicyDenied));
         Assert.That(decision.PolicyId, Is.Null);
     }
 

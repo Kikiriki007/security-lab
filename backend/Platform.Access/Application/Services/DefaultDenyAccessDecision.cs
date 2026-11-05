@@ -2,6 +2,8 @@ using Platform.Access.Application.Options;
 using Platform.Access.Contracts;
 using Platform.Access.Domain.Enums;
 using Platform.Access.Domain.Models;
+using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace Platform.Access.Application.Services;
 
@@ -11,12 +13,14 @@ public sealed class DefaultDenyAccessDecision : IAccessDecision
     private readonly IAccessPolicyRegistry policyRegistry;
     private readonly IAccessAuditWriter auditWriter;
     private readonly AccessDecisionOptions options;
+    private readonly ILogger<DefaultDenyAccessDecision> logger;
 
     public DefaultDenyAccessDecision(
         IActionCatalog actionCatalog,
         IAccessPolicyRegistry policyRegistry,
         IAccessAuditWriter auditWriter,
-        AccessDecisionOptions options)
+        AccessDecisionOptions options,
+        ILogger<DefaultDenyAccessDecision>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(actionCatalog);
         ArgumentNullException.ThrowIfNull(policyRegistry);
@@ -28,6 +32,7 @@ public sealed class DefaultDenyAccessDecision : IAccessDecision
         this.policyRegistry = policyRegistry;
         this.auditWriter = auditWriter;
         this.options = options;
+        this.logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<DefaultDenyAccessDecision>.Instance;
     }
 
     public async ValueTask<AccessDecision> DecideAsync(
@@ -42,8 +47,9 @@ public sealed class DefaultDenyAccessDecision : IAccessDecision
         {
             decision = await EvaluateAsync(request, correlationId, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            this.logger.LogError(exception, "Authorization evaluation failed; access denied. CorrelationId: {CorrelationId}", correlationId);
             decision = AccessDecision.Deny(AccessDenialReason.PolicyError, correlationId);
         }
 
@@ -61,6 +67,15 @@ public sealed class DefaultDenyAccessDecision : IAccessDecision
         if (!actionCatalog.TryGet(request.Action, out var definition) || definition is null)
         {
             return AccessDecision.Deny(AccessDenialReason.UnknownAction, correlationId);
+        }
+
+        if (definition.Scope == ActionScope.Unknown ||
+            (definition.ResourceType is null && request.Resource is not null) ||
+            (definition.ResourceType is not null &&
+             (request.Resource is null ||
+              !string.Equals(definition.ResourceType, request.Resource.Type, StringComparison.Ordinal))))
+        {
+            return AccessDecision.Deny(AccessDenialReason.PolicyError, correlationId);
         }
 
         if (definition.Scope != ActionScope.Public)
@@ -92,7 +107,7 @@ public sealed class DefaultDenyAccessDecision : IAccessDecision
 
         return permitted
             ? AccessDecision.Allow(policyId, correlationId, policyVersion)
-            : AccessDecision.Deny(AccessDenialReason.PolicyError, correlationId, policyVersion);
+            : AccessDecision.Deny(AccessDenialReason.PolicyDenied, correlationId, policyVersion);
     }
 
     private async Task<bool> EvaluatePolicyAsync(
@@ -123,8 +138,9 @@ public sealed class DefaultDenyAccessDecision : IAccessDecision
             ObserveFault(task);
             await task.WaitAsync(options.AuditTimeout).ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            this.logger.LogError(exception, "Authorization audit failed. CorrelationId: {CorrelationId}", decision.CorrelationId);
         }
     }
 
@@ -136,5 +152,7 @@ public sealed class DefaultDenyAccessDecision : IAccessDecision
             TaskScheduler.Default);
 
     private static string NormalizeCorrelationId(string? correlationId) =>
-        string.IsNullOrWhiteSpace(correlationId) ? Guid.NewGuid().ToString("N") : correlationId;
+        string.IsNullOrWhiteSpace(correlationId)
+            ? Guid.NewGuid().ToString("N")
+            : Regex.Replace(correlationId, @"[^\u0021-\u007E]", "_")[..Math.Min(correlationId.Length, 64)];
 }
