@@ -14,7 +14,11 @@ internal sealed class CorrelationMiddleware(RequestDelegate next, ILogger<Correl
 
         context.Assign(correlationId);
         http.TraceIdentifier = correlationId;
-        http.Response.Headers[HeaderName] = correlationId;
+        http.Response.OnStarting(() =>
+        {
+            http.Response.Headers[HeaderName] = correlationId;
+            return Task.CompletedTask;
+        });
 
         using (logger.BeginScope(new Dictionary<string, object> { [LogScopeKey] = correlationId }))
         {

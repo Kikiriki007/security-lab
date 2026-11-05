@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
+using Platform.Access.AspNet;
 using Platform.Audit.Application;
 using Platform.Audit.Composition;
 using Platform.Audit.Contracts;
@@ -154,6 +155,23 @@ public sealed class CorrelationContextTests
     }
 
     [Test]
+    public async Task DeniedByAccessControl_ResponseStillCarriesCorrelationHeader()
+    {
+        using var factory = new CorrelationHostFactory();
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(CorrelationHostFactory.DeniedProbePath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(
+                response.Headers.GetValues(CorrelationMiddleware.HeaderName).Single(),
+                Does.Match(GeneratedIdPattern));
+        });
+    }
+
+    [Test]
     public async Task Request_CorrelationIdIsAcceptedByAuditValidator()
     {
         using var factory = new CorrelationHostFactory();
@@ -191,6 +209,7 @@ public sealed record CorrelationProbeResult(string? CorrelationId, string TraceI
 internal sealed class CorrelationHostFactory : WebApplicationFactory<Program>
 {
     internal const string ProbePath = "/__test/correlation";
+    internal const string DeniedProbePath = "/__test/correlation-denied";
 
     public ScopeCapturingLoggerProvider Logs { get; } = new();
 
@@ -213,12 +232,17 @@ public sealed class CorrelationProbeController(ICorrelationContext correlation, 
 {
     internal const string LogMessage = "correlation probe reached";
 
+    [DelegatedAuthorization]
     [HttpGet(CorrelationHostFactory.ProbePath)]
     public CorrelationProbeResult Get()
     {
         logger.LogInformation(LogMessage);
         return new CorrelationProbeResult(correlation.CorrelationId, HttpContext.TraceIdentifier);
     }
+
+    [HttpGet(CorrelationHostFactory.DeniedProbePath)]
+    public CorrelationProbeResult GetWithoutAccessMetadata() =>
+        new(correlation.CorrelationId, HttpContext.TraceIdentifier);
 }
 
 internal sealed class ScopeCapturingLoggerProvider : ILoggerProvider, ISupportExternalScope

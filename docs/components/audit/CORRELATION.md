@@ -18,10 +18,10 @@ be followed from the HTTP call to the decision, the log line and the audit recor
 |-|-|-|
 | `ICorrelationContext` | `Platform.Audit/Contracts` | Public, read-only. Any module reads the current request's correlation ID. |
 | `CorrelationContext` | `Platform.Audit/Correlation` | Internal, scoped (one per request). The ID can be assigned once; a second assignment throws. |
-| `CorrelationMiddleware` | `Platform.Audit/Correlation` | Internal. First in the pipeline. Generates the ID, stores it, sets `TraceIdentifier`, the `X-Correlation-ID` response header and a `CorrelationId` log scope. |
+| `CorrelationMiddleware` | `Platform.Audit/Correlation` | Internal. First in the pipeline, before routing and `UseAccessControl()`. Generates the ID, stores it, sets `TraceIdentifier`, a `CorrelationId` log scope and the `X-Correlation-ID` response header. The header is written in `Response.OnStarting`, so it survives a later `Response.Clear()` (for example in the Access problem-details writer). |
 | `AddAudit()` | `Platform.Audit/Composition` | Registers the context as scoped, following [DI-GUIDELINES.md](DI-GUIDELINES.md). |
 | `UseCorrelationContext()` | `Platform.Audit/Composition` | The only public way for the host to add the middleware. |
-| `Program.cs` | `Platform.Api` | Calls `app.UseCorrelationContext()` directly after `builder.Build()`. |
+| `Program.cs` | `Platform.Api` | Calls `app.UseCorrelationContext()` directly after `builder.Build()`, before `UseRouting()` and `UseAccessControl()`, so requests denied by ACC-05 also carry the ID. |
 
 Rules:
 
@@ -104,9 +104,11 @@ All tests are in `backend/Platform.Audit.Tests/CorrelationContextTests.cs`.
 | One request reads another request's ID (captive or global state) | Scoped registration; resolving from the root provider fails under scope validation | `AddAudit_RegistersOneCorrelationContextPerScope`, `AddAudit_CorrelationContextFromRootProvider_IsRejected` |
 | Correlation ID rejected by the audit contract | Generated format is 32 hex characters | `NewId_MatchesAuditContractFormat`, `Request_CorrelationIdIsAcceptedByAuditValidator` |
 | HTTP response, log and module see different IDs | One value for context, `TraceIdentifier`, header and log scope | `Request_GetsServerIdInContextTraceIdentifierAndHeader`, `Request_LogsWrittenDuringRequestCarryCorrelationScope`, `Health_ResponseCarriesGeneratedCorrelationHeader`, `TwoRequests_GetDifferentCorrelationIds` |
+| A request denied by the Access middleware cannot be traced | Correlation runs before `UseAccessControl()`; header written in `OnStarting` | `DeniedByAccessControl_ResponseStillCarriesCorrelationHeader` (fails if the middleware is moved after `UseAccessControl()`) |
 
-Removing `app.UseCorrelationContext()` from `Program.cs` makes all eight HTTP tests fail, so the
-tests prove the middleware is active in the real host.
+Removing `app.UseCorrelationContext()` from `Program.cs` makes the HTTP tests fail, so the tests
+prove the middleware is active in the real host. The test probe is marked `[DelegatedAuthorization]`
+like the existing audit probe; it exists only in the test host and returns only the request's own ID.
 
 ## Demonstration
 
@@ -138,8 +140,9 @@ dotnet test backend/Platform.Audit.Tests/Platform.Audit.Tests.csproj --filter "F
 
 - Only HTTP requests get a correlation ID. A background job must create its own scope and
   assign an ID (planned together with the outbox in S-12/S-16).
-- The Access demo endpoint and `AccountEndpoints` still create their own IDs with
-  `Guid.NewGuid()`. Under the S11-09 temporary rule each module keeps its current ID until the
+- `AccessControlMiddleware` (ACC-05, Team 3), the Access demo endpoint and `AccountEndpoints`
+  still create their own IDs with `Guid.NewGuid()`; the Access problem-details body therefore
+  shows a `correlationId` that differs from the `X-Correlation-ID` header. Under the S11-09 temporary rule each module keeps its current ID until the
   owner agrees, so there is no claim of end-to-end correlation yet.
 - Logs carry the ID only if the logging provider includes scopes (for example JSON console with
   `IncludeScopes`).
@@ -151,7 +154,7 @@ dotnet test backend/Platform.Audit.Tests/Platform.Audit.Tests.csproj --filter "F
 | Confirm with the AUD-04 owner that this middleware is the single correlation middleware | AUD-04 owner (S11-09) | before KT2 |
 | Agree whether an incoming `X-Correlation-ID` is accepted, and in which format (open question 5) | AUD-04 owner, member 9 | before KT2 |
 | Use `ICorrelationContext` in the audit context provider together with the trusted actor | S-12 (member 3), D10 | KT2 |
-| Propose to Team 3 that the Access demo and `AccountEndpoints` read `ICorrelationContext` | Team 3, Teams 1 and 2 | KT2 |
+| Propose to Team 3 that `AccessControlMiddleware`, the Access demo and `AccountEndpoints` read `ICorrelationContext` (or `TraceIdentifier`) | Team 3, Teams 1 and 2 | KT2 |
 | Correlation ID for background jobs and the outbox worker | S-12, S-16 | KT2 |
 
 ## Change history
@@ -159,3 +162,4 @@ dotnet test backend/Platform.Audit.Tests/Platform.Audit.Tests.csproj --filter "F
 | Date | Change |
 |-|-|
 | 2026-11-05 | Correlation context, middleware, tests and documentation (S-10) |
+| 2026-11-05 | Merged main with ACC-05: correlation runs before `UseAccessControl()`, header in `OnStarting`, probe marked `[DelegatedAuthorization]`, denied-request test |
