@@ -3,10 +3,12 @@ using System.Net.Http.Json;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Platform.Api.Modules.Laboratories.Api;
 using Platform.Api.Modules.Laboratories.Application;
+using Platform.Api.Modules.Laboratories.Domain;
 
 namespace Laboratories.Tests;
 
@@ -265,6 +267,26 @@ public sealed class LaboratoriesHttpTests
     }
 
     [Test]
+    public async Task GetLabById_WhenIdDoesNotExist_Returns404WithoutInternalDetails()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        Guid missingId = Guid.NewGuid();
+
+        using var response = await client.SendAsync(CreateRequest("GET", $"{Route}{missingId}", Teacher));
+        string body = await response.Content.ReadAsStringAsync();
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.Multiple(() =>
+        {
+            Assert.That(body, Does.Contain(LabErrorCodes.NotFound));
+            Assert.That(body, Does.Not.Contain(missingId.ToString()));
+            Assert.That(body, Does.Not.Contain("Exception"));
+            Assert.That(body, Does.Not.Contain(" at "));
+        });
+    }
+
+    [Test]
     public async Task GetLabById_WhenLabBelongsToAnotherTeacher_Returns404SameAsMissing()
     {
         using var factory = new LaboratoriesHostFactory("Development");
@@ -434,6 +456,28 @@ public sealed class LaboratoriesHttpTests
         Assert.That(updated, Is.EqualTo(created with { Title = "Novi naslov" }));
     }
 
+    // ---------- Neocekivana greska ----------
+
+    [Test]
+    public async Task WhenStorageFails_Returns500WithoutInternalDetails()
+    {
+        using var factory = new LaboratoriesHostFactory("Development", services =>
+            services.AddSingleton<ILaboratoryRepository, FailingRepository>());
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(CreateJsonRequest("POST", Route, Teacher, new { title = "Pad skladista" }));
+        string body = await response.Content.ReadAsStringAsync();
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.InternalServerError));
+        Assert.Multiple(() =>
+        {
+            Assert.That(body, Does.Not.Contain(FailingRepository.SecretDetail));
+            Assert.That(body, Does.Not.Contain("Exception"));
+            Assert.That(body, Does.Not.Contain(" at "));
+            Assert.That(body, Does.Contain("traceId"));
+        });
+    }
+
     // ---------- Pomocne metode ----------
 
     private static async Task<LaboratoryResponse> CreateLabAsync(HttpClient client, string user, string title)
@@ -469,12 +513,32 @@ public sealed class LaboratoriesHttpTests
         return request;
     }
 
-    private sealed class LaboratoriesHostFactory(string environment) : WebApplicationFactory<Program>
+    private sealed class LaboratoriesHostFactory(
+        string environment, Action<IServiceCollection>? testServices = null) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment(environment);
             builder.ConfigureLogging(logging => logging.ClearProviders());
+            if (testServices is not null)
+            {
+                builder.ConfigureTestServices(testServices);
+            }
         }
+    }
+
+    // Skladiste koje uvek baca gresku sa "internim" tekstom koji ne sme da stigne do klijenta.
+    private sealed class FailingRepository : ILaboratoryRepository
+    {
+        public const string SecretDetail = "connection-string=Host=db;Password=do-not-leak";
+
+        private static Exception Fail() => new InvalidOperationException(SecretDetail);
+
+        public Task AddAsync(Laboratory laboratory, CancellationToken cancellationToken = default) => throw Fail();
+        public Task<Laboratory?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => throw Fail();
+        public Task<IReadOnlyList<Laboratory>> ListAsync(CancellationToken cancellationToken = default) => throw Fail();
+        public Task UpdateAsync(Laboratory laboratory, CancellationToken cancellationToken = default) => throw Fail();
+        public Task<LabRevision> AddRevisionAsync(Guid laboratoryId, CancellationToken cancellationToken = default) => throw Fail();
+        public Task<IReadOnlyList<LabRevision>> GetRevisionsAsync(Guid laboratoryId, CancellationToken cancellationToken = default) => throw Fail();
     }
 }
