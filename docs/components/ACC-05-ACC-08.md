@@ -70,14 +70,34 @@ Fail-closed tok:
 7. neusklađen scope ili tip resursa → `PolicyError`;
 8. samo uspešna politika može vratiti `Allow`.
 
-`LoggerAccessAuditWriter` je trenutni lokalni adapter. Sanitizuje tekstualne vrednosti,
-hash-uje identifikatore resursa i subjekta i piše odluke preko `ILogger`, bez tajni,
-tela zahteva ili studentskih odgovora. Centralni `Platform.Audit` ugovor još nije
-direktno integrisan; integracija se radi nakon stabilizacije Audit modula.
-Testovi koriste eksplicitne recording/throwing audit fake-ove. `EmptyMembershipReader`
+Audit se izvršava kroz lanac `ResilientAccessAuditWriter` →
+`FilteringAccessAuditWriter` → `AggregatingAccessAuditSink` →
+`LoggerAccessAuditSink`. Odbijanja se agregiraju po akteru, akciji, ciljnom resursu
+i razlogu odbijanja; prvi događaj se emituje odmah, a ponovljena odbijanja se
+objavljuju kao ograničeni summary zapisi nakon isteka aggregation prozora.
+`AccessAuditFlushService` periodično i pri gašenju aplikacije flush-uje otvorene
+summary zapise. Pipeline ima ograničene aggregation ključeve i pending retry
+zapise, tako da rast broja događaja ne postane neograničen.
+
+`ResilientAccessAuditWriter` izoluje audit od odluke: audit ima timeout,
+prosleđuje cancellation token i greške audit adaptera ne menjaju već izračunati
+`Allow` ili `Deny` ishod. Neuspeh i timeout se prijavljuju kao zasebni alarmi.
+Audit record factory i sanitizer dozvoljavaju samo definisana polja, ograničavaju
+dužinu vrednosti i odbacuju kontrolne/hostile vrednosti; tajne, telo zahteva i
+studentski odgovori se ne upisuju.
+
+`LoggerAccessAuditSink` je lokalni adapter preko host `ILogger` ugovora. Centralni
+`Platform.Audit` ugovor još nije direktno integrisan; integracija se radi nakon
+stabilizacije Audit modula. Testovi koriste eksplicitne recording/throwing
+audit fake-ove. `EmptyMembershipReader`
 i `EmptyResourceDescriptorResolver` ostaju namerni fail-closed fallback-i za slučaj
 da domenski adapteri nisu registrovani; ne predstavljaju placeholder poslovnu
 logiku i ne mogu odobriti zahtev.
+
+`AddAccessControl()` registruje katalog, policy registry, decision engine, audit
+pipeline i flush servis kao singleton komponente. Audit loggers koriste host
+logger kada je dostupan, a `NullLogger` fallback u minimalnim kontejnerima; modul
+ne konfiguriše globalni logging hosta.
 
 Za `attempt.read` i `attempt.submit` politika zahteva server-side potvrdu vlasništva.
 Ako resolver vlasništva nije dostupan ili ne potvrdi vlasnika, pristup se odbija.
@@ -165,4 +185,3 @@ Ovim se proveravaju pokretanje API-ja i početni ACC-05 tok. Demo ruta je samo r
 4. Integracija sa centralnim `Platform.Audit` modulom nakon stabilizacije njegovog composition ugovora.
 5. Domenski ownership adapteri i preostala ACC-08 pravila.
 6. Jedinični, integracioni i negativni testovi u CI-ju.
-
