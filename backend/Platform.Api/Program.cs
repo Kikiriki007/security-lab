@@ -135,7 +135,7 @@ app.UseIdentityRateLimiting();
 if (kt1Enabled)
 {
     app.UseAuthentication();
-    app.RegisterCourseworkPolicies();
+    // KT1 policy registrations are isolated within AddCourseworkKt1().
     app.MapCourseworkKt1();
 }
 
