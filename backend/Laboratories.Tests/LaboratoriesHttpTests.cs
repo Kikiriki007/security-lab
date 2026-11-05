@@ -1,21 +1,31 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Platform.Api.Modules.Laboratories.Api;
+using Platform.Api.Modules.Laboratories.Application;
 
 namespace Laboratories.Tests;
 
+// HTTP testovi LAB-01 API-ja nad stvarnim hostom u memoriji (WebApplicationFactory).
+// Svaki test pravi svoj host, pa ima svoje prazno skladiste.
 [TestFixture]
 public sealed class LaboratoriesHttpTests
 {
     private const string Route = "/api/laboratories/";
     private const string TestUserHeader = "X-Test-User";
+    private const string Teacher = "marko:Teacher";
+    private const string Student = "ana:Student";
+
+    // ---------- Provera pristupa pre endpoint-a (kostur) ----------
 
     [TestCase("GET", null, HttpStatusCode.Unauthorized)]
     [TestCase("POST", null, HttpStatusCode.Unauthorized)]
-    [TestCase("GET", "ana:Student", HttpStatusCode.OK)]
-    [TestCase("POST", "ana:Student", HttpStatusCode.Forbidden)]
-    [TestCase("POST", "marko:Teacher", HttpStatusCode.NotImplemented)]
+    [TestCase("GET", Student, HttpStatusCode.OK)]
+    [TestCase("POST", Student, HttpStatusCode.Forbidden)]
+    [TestCase("GET", Teacher, HttpStatusCode.OK)]
     [TestCase("GET", "ana:Unknown", HttpStatusCode.Unauthorized)]
     [TestCase("GET", "invalid", HttpStatusCode.Unauthorized)]
     public async Task Development_EnforcesAccessBeforeEndpoint(
@@ -23,7 +33,7 @@ public sealed class LaboratoriesHttpTests
     {
         using var factory = new LaboratoriesHostFactory("Development");
         using var client = factory.CreateClient();
-        using var request = CreateRequest(method, testUser);
+        using var request = CreateRequest(method, Route, testUser);
 
         using var response = await client.SendAsync(request);
 
@@ -39,8 +49,8 @@ public sealed class LaboratoriesHttpTests
     {
         using var factory = new LaboratoriesHostFactory("Development");
         using var client = factory.CreateClient();
-        using var request = CreateRequest("POST", null);
-        request.Headers.Add(TestUserHeader, new[] { "ana:Student", "marko:Teacher" });
+        using var request = CreateRequest("POST", Route, null);
+        request.Headers.Add(TestUserHeader, new[] { Student, Teacher });
 
         using var response = await client.SendAsync(request);
 
@@ -52,43 +62,96 @@ public sealed class LaboratoriesHttpTests
     {
         using var factory = new LaboratoriesHostFactory("Development");
         using var client = factory.CreateClient();
-        using var teacherRequest = CreateRequest("POST", "marko:Teacher");
-        using var teacherResponse = await client.SendAsync(teacherRequest);
-        Assert.That(teacherResponse.StatusCode, Is.EqualTo(HttpStatusCode.NotImplemented));
 
-        using var studentRequest = CreateRequest("POST", "ana:Student");
-        using var studentResponse = await client.SendAsync(studentRequest);
+        using var teacherResponse = await client.SendAsync(CreateJsonRequest("POST", Route, Teacher, new { title = "Lab nastavnika" }));
+        Assert.That(teacherResponse.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+
+        using var studentResponse = await client.SendAsync(CreateJsonRequest("POST", Route, Student, new { title = "Lab studenta" }));
         Assert.That(studentResponse.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
 
-        using var anonymousRequest = CreateRequest("POST", null);
-        using var anonymousResponse = await client.SendAsync(anonymousRequest);
+        using var anonymousResponse = await client.SendAsync(CreateJsonRequest("POST", Route, null, new { title = "Anonimni lab" }));
         Assert.That(anonymousResponse.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+
+        Assert.That(await StoredCountAsync(factory), Is.EqualTo(1));
     }
 
-    [TestCase("Production", "GET")]
-    [TestCase("Production", "POST")]
-    [TestCase("Staging", "GET")]
-    [TestCase("Staging", "POST")]
+    [TestCase("Production", "GET", "/api/laboratories/")]
+    [TestCase("Production", "POST", "/api/laboratories/")]
+    [TestCase("Staging", "GET", "/api/laboratories/")]
+    [TestCase("Staging", "POST", "/api/laboratories/")]
+    [TestCase("Staging", "POST", "/api/labs/")]
     public async Task OutsideDevelopment_TestTeacherHeaderDoesNotGrantAccess(
-        string environment, string method)
+        string environment, string method, string path)
     {
         using var factory = new LaboratoriesHostFactory(environment);
         using var client = factory.CreateClient();
-        using var request = CreateRequest(method, "marko:Teacher");
+        using var request = CreateJsonRequest(method, path, Teacher, new { title = "Ne sme proci" });
 
         using var response = await client.SendAsync(request);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
-    private static HttpRequestMessage CreateRequest(string method, string? testUser)
+    // ---------- POST: kreiranje ----------
+
+    [Test]
+    public async Task PostLabs_WhenTeacherCreates_Returns201WithServerIdAndLocation()
     {
-        var request = new HttpRequestMessage(new HttpMethod(method), Route);
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(CreateJsonRequest("POST", Route, Teacher, new { title = "  RBAC i kontrola pristupa  " }));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+        var created = await response.Content.ReadFromJsonAsync<LaboratoryResponse>();
+        Assert.That(created, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(created!.Id, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(created.Title, Is.EqualTo("RBAC i kontrola pristupa"));
+            Assert.That(created.Status, Is.EqualTo("Draft"));
+            Assert.That(created.CreatedBy, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(response.Headers.Location?.OriginalString, Is.EqualTo($"/api/laboratories/{created.Id}"));
+        });
+    }
+
+    [Test]
+    public async Task PostLabs_ThroughAliasRoute_UsesSameChecks()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var teacher = await client.SendAsync(CreateJsonRequest("POST", "/api/labs", Teacher, new { title = "Preko aliasa" }));
+        using var student = await client.SendAsync(CreateJsonRequest("POST", "/api/labs", Student, new { title = "Preko aliasa" }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(teacher.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+            Assert.That(teacher.Headers.Location?.OriginalString, Does.StartWith("/api/laboratories/"));
+            Assert.That(student.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        });
+    }
+
+    // ---------- Pomocne metode ----------
+
+    private static async Task<int> StoredCountAsync(WebApplicationFactory<Program> factory) =>
+        (await factory.Services.GetRequiredService<ILaboratoryRepository>().ListAsync()).Count;
+
+    private static HttpRequestMessage CreateRequest(string method, string path, string? testUser)
+    {
+        var request = new HttpRequestMessage(new HttpMethod(method), path);
         if (testUser is not null)
         {
             request.Headers.Add(TestUserHeader, testUser);
         }
 
+        return request;
+    }
+
+    private static HttpRequestMessage CreateJsonRequest(string method, string path, string? testUser, object body)
+    {
+        HttpRequestMessage request = CreateRequest(method, path, testUser);
+        request.Content = JsonContent.Create(body);
         return request;
     }
 
