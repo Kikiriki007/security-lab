@@ -11,7 +11,7 @@ public sealed class RevisionApprovalPolicy(
     public const string Action = "revision.approve";
 
     public string Id => "rev05.revision-approval";
-    public string Version => "rev05:v1";
+    public string Version => "v1";
 
     public async ValueTask<bool> EvaluateAsync(
         AccessRequest request,
@@ -50,3 +50,4 @@ public sealed class RevisionApprovalPolicy(
             cancellationToken);
     }
 }
+
