@@ -22,6 +22,10 @@ using Platform.LabVisibility.Composition;
 using Platform.LabVisibility.Contracts;
 using Platform.LabVisibility.Infrastructure.Membership;
 
+using Platform.Api.Modules.Authoring;
+using Platform.Authoring.Application;
+using Platform.Authoring.Infrastructure;
+
 // Oba modula imaju IAccessDecision, zato koristimo alias.
 using IdentityAccessDecision = Platform.Api.Services.Identity.IAccessDecision;
 using PlatformAccessDecision = Platform.Access.Contracts.IAccessDecision;
@@ -104,6 +108,21 @@ else
     builder.Services.AddSingleton<ILaboratoryRepository, UnavailableLaboratoryRepository>();
 }
 
+//AUT-06: development adapters for template-based task creation
+//DevelopmentAuthoringAccess uses the identity context registered by AddLaboratories
+if(builder.Environment.IsDevelopment())
+{
+    //Kepp drafts across requests until the application restarts
+    builder.Services.AddSingleton<IDraftRepository, DevelopmentDraftRepository>();
+
+    //Reuse the existing read-only templates from Platform.Authoring
+    builder.Services.AddSingleton<ITemplateRepository, BuiltInTemplateRepository>();
+
+    //Access depends on the current HTTP request, so use a scoped lifetime
+    builder.Services.AddScoped<IAuthoringAccess, DevelopmentAuthoringAcces>();
+    builder.Services.AddScoped<DraftService>();
+}
+
 // Kreiranje aplikacije
 var app = builder.Build();
 
@@ -159,6 +178,12 @@ app.UseMiddleware<SessionValidationMiddleware>();
 
 app.MapControllers();
 app.MapLaboratories();
+
+//AUT-06 currently uses development-only identity and storage adapters
+if(app.Environment.IsDevelopment())
+{
+    app.MapAuthoringEndpoints();
+}
 
 if (app.Environment.IsDevelopment())
 {
