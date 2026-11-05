@@ -29,12 +29,11 @@ public sealed class LabPrerequisiteStoreAdapter : IPrerequisiteRepository
             return AddPrerequisiteResult.Duplicate;
         }
 
-        var existing = existingIds
-            .Select(id => new LabPrerequisite(
-                prerequisite.LaboratoryId, id))
-            .ToList();
+        List<LabPrerequisite> chain = await LoadChainAsync(
+            prerequisite.RequiredLaboratoryId,
+            cancellationToken);
 
-        if (PrerequisiteRules.WouldCreateCycle(existing, prerequisite))
+        if (PrerequisiteRules.WouldCreateCycle(chain, prerequisite))
         {
             return AddPrerequisiteResult.WouldCreateCycle;
         }
@@ -80,5 +79,36 @@ public sealed class LabPrerequisiteStoreAdapter : IPrerequisiteRepository
 
         return ids.Select(id =>
             new LabPrerequisite(laboratoryId, id)).ToList();
+    }
+
+    private async Task<List<LabPrerequisite>> LoadChainAsync(
+        Guid startLaboratoryId,
+        CancellationToken cancellationToken)
+    {
+        var chain = new List<LabPrerequisite>();
+        var visited = new HashSet<Guid>();
+        var toVisit = new Stack<Guid>();
+        toVisit.Push(startLaboratoryId);
+
+        while (toVisit.Count > 0)
+        {
+            Guid current = toVisit.Pop();
+
+            if (!visited.Add(current))
+            {
+                continue;
+            }
+
+            IReadOnlyList<Guid> requiredIds =
+                await _store.GetIdsAsync(current, cancellationToken);
+
+            foreach (Guid requiredId in requiredIds)
+            {
+                chain.Add(new LabPrerequisite(current, requiredId));
+                toVisit.Push(requiredId);
+            }
+        }
+
+        return chain;
     }
 }
