@@ -7,6 +7,8 @@ namespace Platform.Api.Modules.Laboratories.Api;
 // klijent ne moze da izabere ID, autora ni status (mass assignment zastita).
 public sealed record CreateLaboratoryRequest(string? Title);
 
+public sealed record RenameLaboratoryRequest(string? Title);
+
 public sealed record LaboratoryResponse(
     Guid Id,
     string Title,

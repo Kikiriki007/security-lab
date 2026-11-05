@@ -64,6 +64,21 @@ public static class LaboratoriesEndpoints
                 ? Results.Ok(ToResponse(result.Laboratory!))
                 : ToFailure(result.Status);
         }).RequireLabAccess(LabActions.Read);
+
+        // PATCH /api/laboratories/{id}/title  ->  200 sa istim Id-em i novim naslovom
+        group.MapPatch("/{id:guid}/title", async (Guid id, HttpContext http, [FromServices] LaboratoryService service, [FromServices] IIdentityContext caller) =>
+        {
+            (bool ok, RenameLaboratoryRequest? request) = await TryReadBodyAsync<RenameLaboratoryRequest>(http);
+            if (!ok)
+            {
+                return InvalidBody();
+            }
+
+            LabResult result = await service.RenameAsync(id, request?.Title, caller, http.RequestAborted);
+            return result.Status == LabResultStatus.Ok
+                ? Results.Ok(ToResponse(result.Laboratory!))
+                : ToFailure(result.Status);
+        }).RequireLabAccess(LabActions.Rename);
     }
 
     private static LaboratoryResponse ToResponse(Laboratory lab) =>

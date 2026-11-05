@@ -6,4 +6,5 @@ public static class LabActions
     public const string List = "laboratory.list";
     public const string Create = "laboratory.create";
     public const string Read = "laboratory.read";
+    public const string Rename = "laboratory.rename";
 }

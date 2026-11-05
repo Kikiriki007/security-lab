@@ -18,7 +18,7 @@ public sealed record LabResult(LabResultStatus Status, Laboratory? Laboratory = 
     public static readonly LabResult Unauthenticated = new(LabResultStatus.Unauthenticated);
 }
 
-// LAB-01 slucajevi upotrebe: kreiranje i citanje laboratorije.
+// LAB-01 slucajevi upotrebe: kreiranje, citanje i preimenovanje laboratorije.
 //
 // Poziva se tek posle AccessCheckFilter-a (uloga i poznata radnja). Ovde se dodatno proverava
 // vlasnistvo nad konkretnom laboratorijom: nastavnik vidi i menja samo laboratorije koje je
@@ -77,6 +77,53 @@ public sealed class LaboratoryService(
         return IsVisibleTo(laboratory, callerId.Value)
             ? LabResult.Ok(laboratory!)
             : LabResult.NotFound;
+    }
+
+    public async Task<LabResult> RenameAsync(
+        Guid id, string? title, IIdentityContext caller, CancellationToken cancellationToken)
+    {
+        Guid? callerId = CallerId.From(caller);
+        if (callerId is null)
+        {
+            return LabResult.Unauthenticated;
+        }
+
+        Laboratory? laboratory = await repository.GetByIdAsync(id, cancellationToken);
+        if (!IsVisibleTo(laboratory, callerId.Value))
+        {
+            return LabResult.NotFound;
+        }
+
+        if (!IsAcceptableTitle(title))
+        {
+            return LabResult.InvalidTitle;
+        }
+
+        try
+        {
+            // Rename menja samo naslov; Id, autor, status i vreme kreiranja ostaju isti.
+            laboratory!.Rename(title!);
+        }
+        catch (ArgumentException)
+        {
+            return LabResult.InvalidTitle;
+        }
+
+        try
+        {
+            await repository.UpdateAsync(laboratory, cancellationToken);
+        }
+        catch (LaboratoryNotFoundException)
+        {
+            // Obrisana izmedju citanja i upisa.
+            return LabResult.NotFound;
+        }
+
+        logger.LogInformation(
+            "Laboratory renamed: laboratoryId={LaboratoryId} by={CallerId}",
+            laboratory.Id, callerId.Value);
+
+        return LabResult.Ok(laboratory);
     }
 
     private static bool IsVisibleTo(Laboratory? laboratory, Guid callerId) =>

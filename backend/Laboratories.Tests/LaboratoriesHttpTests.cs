@@ -79,9 +79,11 @@ public sealed class LaboratoriesHttpTests
     [TestCase("Production", "GET", "/api/laboratories/")]
     [TestCase("Production", "POST", "/api/laboratories/")]
     [TestCase("Production", "GET", "/api/laboratories/11111111-1111-1111-1111-111111111111")]
+    [TestCase("Production", "PATCH", "/api/laboratories/11111111-1111-1111-1111-111111111111/title")]
     [TestCase("Staging", "GET", "/api/laboratories/")]
     [TestCase("Staging", "POST", "/api/laboratories/")]
     [TestCase("Staging", "POST", "/api/labs/")]
+    [TestCase("Staging", "PATCH", "/api/labs/11111111-1111-1111-1111-111111111111/title")]
     public async Task OutsideDevelopment_TestTeacherHeaderDoesNotGrantAccess(
         string environment, string method, string path)
     {
@@ -257,6 +259,117 @@ public sealed class LaboratoriesHttpTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
+    // ---------- PATCH /{id}/title: preimenovanje ----------
+
+    [Test]
+    public async Task PatchLabTitle_WhenTeacherRenamesLab_UpdatesTitleAndKeepsSameId()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Stari naslov");
+
+        using var patch = await client.SendAsync(CreateJsonRequest("PATCH", $"{Route}{created.Id}/title", Teacher, new { title = "Novi naslov" }));
+
+        Assert.That(patch.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var updated = await patch.Content.ReadFromJsonAsync<LaboratoryResponse>();
+        Assert.That(updated, Is.Not.Null);
+        Assert.That(updated, Is.EqualTo(created with { Title = "Novi naslov" }));
+
+        // Izmena je sacuvana: ponovno citanje vraca novi naslov pod istim ID-em.
+        var read = await client.SendAsync(CreateRequest("GET", $"{Route}{created.Id}", Teacher));
+        Assert.That(await read.Content.ReadFromJsonAsync<LaboratoryResponse>(), Is.EqualTo(updated));
+    }
+
+    [Test]
+    public async Task PatchLabTitle_RenamedTwice_IdStaysTheSame()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Verzija 1");
+
+        foreach (string title in new[] { "Verzija 2", "Verzija 3" })
+        {
+            using var patch = await client.SendAsync(CreateJsonRequest("PATCH", $"{Route}{created.Id}/title", Teacher, new { title }));
+            var updated = await patch.Content.ReadFromJsonAsync<LaboratoryResponse>();
+            Assert.That(updated!.Id, Is.EqualTo(created.Id));
+        }
+
+        Assert.That(await StoredCountAsync(factory), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task PatchLabTitle_WhenStudentRenames_Returns403AndKeepsTitle()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Originalni naslov");
+
+        using var patch = await client.SendAsync(CreateJsonRequest("PATCH", $"{Route}{created.Id}/title", Student, new { title = "Hakovano" }));
+
+        Assert.That(patch.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        Assert.That(await StoredTitleAsync(factory, created.Id), Is.EqualTo("Originalni naslov"));
+    }
+
+    [Test]
+    public async Task PatchLabTitle_WhenAnotherTeacherRenames_Returns404AndKeepsTitle()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Originalni naslov");
+
+        using var patch = await client.SendAsync(CreateJsonRequest("PATCH", $"{Route}{created.Id}/title", OtherTeacher, new { title = "Tudja izmena" }));
+
+        Assert.That(patch.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(await StoredTitleAsync(factory, created.Id), Is.EqualTo("Originalni naslov"));
+    }
+
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase(null)]
+    public async Task PatchLabTitle_WhenTitleIsInvalid_Returns400AndKeepsTitle(string? invalidTitle)
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Originalni naslov");
+
+        using var patch = await client.SendAsync(CreateJsonRequest("PATCH", $"{Route}{created.Id}/title", Teacher, new { title = invalidTitle }));
+
+        Assert.That(patch.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(await patch.Content.ReadAsStringAsync(), Does.Contain(LabErrorCodes.InvalidTitle));
+        Assert.That(await StoredTitleAsync(factory, created.Id), Is.EqualTo("Originalni naslov"));
+    }
+
+    [Test]
+    public async Task PatchLabTitle_WhenLabDoesNotExist_Returns404()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var patch = await client.SendAsync(CreateJsonRequest("PATCH", $"{Route}{Guid.NewGuid()}/title", Teacher, new { title = "Novi naslov" }));
+
+        Assert.That(patch.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(await StoredCountAsync(factory), Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task PatchLabTitle_CannotChangeIdOrCreatorThroughBody()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+        LaboratoryResponse created = await CreateLabAsync(client, Teacher, "Stari naslov");
+
+        using var patch = await client.SendAsync(CreateJsonRequest("PATCH", $"{Route}{created.Id}/title", Teacher, new
+        {
+            id = Guid.NewGuid(),
+            createdBy = Guid.NewGuid(),
+            status = "Archived",
+            title = "Novi naslov",
+        }));
+
+        var updated = await patch.Content.ReadFromJsonAsync<LaboratoryResponse>();
+        Assert.That(updated, Is.EqualTo(created with { Title = "Novi naslov" }));
+    }
+
     // ---------- Pomocne metode ----------
 
     private static async Task<LaboratoryResponse> CreateLabAsync(HttpClient client, string user, string title)
@@ -270,6 +383,9 @@ public sealed class LaboratoriesHttpTests
 
     private static async Task<int> StoredCountAsync(WebApplicationFactory<Program> factory) =>
         (await factory.Services.GetRequiredService<ILaboratoryRepository>().ListAsync()).Count;
+
+    private static async Task<string?> StoredTitleAsync(WebApplicationFactory<Program> factory, Guid id) =>
+        (await factory.Services.GetRequiredService<ILaboratoryRepository>().GetByIdAsync(id))?.Title;
 
     private static HttpRequestMessage CreateRequest(string method, string path, string? testUser)
     {
