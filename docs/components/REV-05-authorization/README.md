@@ -145,7 +145,7 @@ dotnet test backend/Platform.Tests/Platform.Tests.csproj --filter "FullyQualifie
 
 Posljednji provjereni rezultat:
 
-33 testa uspjesno, 0 neuspjesnih.
+37 testova uspjesno, 0 neuspjesnih.
 
 Testovi pokrivaju osnovne pozitivne i negativne
 slucajeve autorizacije, generisanje audit dogadjaja
@@ -174,4 +174,5 @@ ostaju odgovornost njihovih vlasnika.
 - Aktivirati audit adapter nakon registracije Audit servisa.
 - Uskladiti pozive IAccessDecision sa API vlasnikom.
 - Izvrsiti zavrsne provjere i testove.
+
 
