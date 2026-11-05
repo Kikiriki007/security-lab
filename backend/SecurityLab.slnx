@@ -11,12 +11,8 @@
   <Project Path="Platform.LabMetadata/Platform.LabMetadata.csproj" Id="90892a49-5843-4415-a14a-1d89b684646f" />
   <Project Path="Platform.Authoring.Tests/Platform.Authoring.Tests.csproj" />
   <Project Path="Platform.Authoring/Platform.Authoring.csproj" />
-  <Project Path="Platform.Identity/Platform.Identity.csproj" />
-  <Project Path="Platform.Identity.Tests/Platform.Identity.Tests.csproj" />
   <Project Path="Platform.LabLocalization.Tests/Platform.LabLocalization.Tests.csproj" />
   <Project Path="Platform.LabLocalization/Platform.LabLocalization.csproj" />
-  <Project Path="Platform.Identity/Platform.Identity.csproj" />
-  <Project Path="Platform.Identity.Tests/Platform.Identity.Tests.csproj" />
   <Project Path="Platform.LabVisibility/Platform.LabVisibility.csproj" />
   <Project Path="Platform.RateLimiting.Tests/Platform.RateLimiting.Tests.csproj" />
   <Project Path="Platform.Tests/Platform.Tests.csproj" />

@@ -64,9 +64,6 @@ builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 
-builder.Services.AddLaboratoriesPersistence(
-    builder.Configuration.GetConnectionString("Laboratories"));
-
 builder.Services.AddSingleton<IAccountRepository, InMemoryAccountRepository>();
 builder.Services.AddSingleton<ICredentialAuthenticator, UnavailableCredentialAuthenticator>();
 builder.Services.AddSingleton<ISessionIssuer, UnavailableSessionIssuer>();
@@ -81,7 +78,7 @@ builder.Services.AddScoped<LoginAccount>();
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddScoped<
-        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Interfaces.Identity.IIdentityContext,
         Platform.Api.Services.Identity.StubIdentityContext>();
 
     builder.Services.AddSingleton<
@@ -91,7 +88,7 @@ if (builder.Environment.IsDevelopment())
 else
 {
     builder.Services.AddScoped<
-        Platform.Api.Services.Identity.IIdentityContext,
+        Platform.Api.Interfaces.Identity.IIdentityContext,
         Platform.Api.Services.Identity.AnonymousIdentityContext>();
 
     builder.Services.AddSingleton<
