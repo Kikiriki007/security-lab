@@ -84,10 +84,6 @@ public static class Kt1Endpoints
             sp.GetRequiredService<TimeProvider>()));
         return services;
     }
-    // Legacy entry point retained for the existing Program.cs call.
-    // KT1 policies live in an isolated decision engine provided only to KT1 services.
-    public static void RegisterCourseworkPolicies(this WebApplication app) { }
-
     private sealed class Kt1PolicyDecision(IAccessDecision inner) : IAccessDecision
     {
         public ValueTask<AccessDecision> DecideAsync(
