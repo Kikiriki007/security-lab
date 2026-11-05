@@ -120,6 +120,18 @@ public sealed class LaboratoriesHttpTests
     }
 
     [Test]
+    public async Task PostLabs_WhenStudentCreates_Returns403AndStoresNothing()
+    {
+        using var factory = new LaboratoriesHostFactory("Development");
+        using var client = factory.CreateClient();
+
+        using var response = await client.SendAsync(CreateJsonRequest("POST", Route, Student, new { title = "Studentski pokusaj" }));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        Assert.That(await StoredCountAsync(factory), Is.EqualTo(0));
+    }
+
+    [Test]
     public async Task PostLabs_WhenClientSendsOwnId_ServerIgnoresItAndAssignsNewId()
     {
         using var factory = new LaboratoriesHostFactory("Development");
