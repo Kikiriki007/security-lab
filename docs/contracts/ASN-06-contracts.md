@@ -54,10 +54,11 @@ Open point: `AuditEventDraft.CourseId` is a `Guid`, but `Assignment.CourseId` is
 
 | Team / module | Use |
 |-|-|
-| Team 3, Access and membership (ACC-03, ACC-05, ACC-17) | Implements `IDeadlineExtensionAuthorization` and `ICourseEnrollmentCheck`. |
-| Team 12, Audit (AUD-01) | Adds the event type and provides the adapter for `IDeadlineExtensionAuditWriter` and the atomic entry in `SaveAsync`. |
-| ASN-04 owner (start attempt) | Reads the student's extension with `IDeadlineExtensionStore.GetAsync` and calls `Assignment.GetAvailability(now, individualDueAtUtc)`. |
-| Team 15, API / UI | Endpoint that passes the session's user as `actorId`. |
+| Member 4 (authorization) with Team 3, Access and membership (ACC-03, ACC-05, ACC-17) | Implements `IDeadlineExtensionAuthorization` and `ICourseEnrollmentCheck`. |
+| Member 5 (audit and API) with Team 12, Audit (AUD-01) | Adds the event type and provides the adapter for `IDeadlineExtensionAuditWriter`; with member 1, the atomic audit entry in `SaveAsync`. |
+| Member 2 (ASN-04, start attempt) | Reads the student's extension with `IDeadlineExtensionStore.GetAsync` and calls `Assignment.GetAvailability(now, individualDueAtUtc)`. |
+| Member 1 (database and domain) | Implements `IDeadlineExtensionStore` on PostgreSQL, based on `StudentDeadlineOverride`. |
+| Member 5 (API) | Endpoint that passes the session's user as `actorId`. |
 
 ## Fakes
 
