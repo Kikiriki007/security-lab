@@ -168,7 +168,7 @@ Kada je promenljiva `ConnectionStrings__Laboratories` lokalno podešena, migraci
 dotnet ef database update --project backend/Platform.Laboratories.Infrastructure --startup-project backend/Platform.Laboratories.Infrastructure --context LaboratoriesDbContext
 ```
 
-U `.github/workflows/ci.yml` dodat je job za ove testove i proveru migracionog snapshot-a. Iste komande su proverene lokalno; prvo izvršavanje na GitHub-u predstoji nakon push-a i pull request-a.
+U zasebnom `.github/workflows/rev05.yml` definisane su REV-05 domenske, PostgreSQL integracione i migracione provere. Zajednički backend i frontend CI zadržan je iz main grane.
 
 ## Povezivanje sa zajedničkim solution-om
 
@@ -177,3 +177,8 @@ REV-05 projekti su u solution folderu `Publication`. Reference iz API-ja su u po
 Pri usklađivanju sa `main` granom 04.11.2026. sačuvani su svi integrisani moduli. Prošli su build svih 22 projekta, svih 497 testova solution-a, frontend build, provera migracionog snapshot-a i 41 KT1 HTTP demo provera. REV-05 i dalje ima 61 domenski/model test i 20 PostgreSQL integracionih testova.
 
 Otvoreni PR-ovi drugih modula provereni su radi preklapanja u zajedničkim fajlovima; njihov neintegrisani kod nije preuzet. Odvojene reference smanjuju preklapanje, ali nove izmene istih fajlova mogu ponovo zahtevati usklađivanje pre merge-a.
+
+
+## Odvojene CI provere
+
+REV-05 workflow je u zasebnom fajlu `.github/workflows/rev05.yml`. Zajednički `ci.yml` zadržava backend i frontend provere iz main-a, uključujući UI testove. Oba workflow-a se pokreću za pull request i push na main. Time se uklanja preklapanje pri dodavanju koraka u zajednički CI fajl, bez preskakanja provera.
